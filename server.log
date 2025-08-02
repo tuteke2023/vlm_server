@@ -1,53 +1,38 @@
-INFO:     Started server process [11517]
+INFO:     Started server process [13094]
 INFO:     Waiting for application startup.
-2025-08-02 14:43:57,955 - vlm_server - INFO - Loading model: Qwen/Qwen2.5-VL-7B-Instruct
-2025-08-02 14:43:58,297 - vlm_server - INFO - Using GPU: NVIDIA GeForce RTX 5060 Ti
-2025-08-02 14:43:59,132 - accelerate.utils.modeling - INFO - We will use 90% of the memory on device 0 for storing the model, and 10% for the buffer to avoid OOM. You can set `max_memory` in to a higher value to use more memory (at your own risk).
-Loading checkpoint shards:   0%|          | 0/5 [00:00<?, ?it/s]Loading checkpoint shards:  20%|██        | 1/5 [00:02<00:10,  2.50s/it]Loading checkpoint shards:  40%|████      | 2/5 [00:04<00:07,  2.36s/it]Loading checkpoint shards:  60%|██████    | 3/5 [00:07<00:04,  2.33s/it]Loading checkpoint shards:  80%|████████  | 4/5 [00:08<00:02,  2.14s/it]Loading checkpoint shards: 100%|██████████| 5/5 [00:09<00:00,  1.54s/it]Loading checkpoint shards: 100%|██████████| 5/5 [00:09<00:00,  1.87s/it]
-2025-08-02 14:44:09,300 - accelerate.big_modeling - WARNING - Some parameters are on the meta device because they were offloaded to the cpu.
+2025-08-02 16:26:35,838 - vlm_server - INFO - Loading model: Qwen/Qwen2.5-VL-7B-Instruct
+2025-08-02 16:26:35,989 - vlm_server - INFO - Using GPU: NVIDIA GeForce RTX 5060 Ti
+2025-08-02 16:26:36,862 - accelerate.utils.modeling - INFO - We will use 90% of the memory on device 0 for storing the model, and 10% for the buffer to avoid OOM. You can set `max_memory` in to a higher value to use more memory (at your own risk).
+Loading checkpoint shards:   0%|          | 0/5 [00:00<?, ?it/s]Loading checkpoint shards:  20%|██        | 1/5 [00:02<00:10,  2.69s/it]Loading checkpoint shards:  40%|████      | 2/5 [00:05<00:07,  2.64s/it]Loading checkpoint shards:  60%|██████    | 3/5 [00:08<00:05,  2.89s/it]Loading checkpoint shards:  80%|████████  | 4/5 [00:10<00:02,  2.49s/it]Loading checkpoint shards: 100%|██████████| 5/5 [00:10<00:00,  1.73s/it]Loading checkpoint shards: 100%|██████████| 5/5 [00:10<00:00,  2.15s/it]
+2025-08-02 16:26:48,389 - accelerate.big_modeling - WARNING - Some parameters are on the meta device because they were offloaded to the cpu.
 The image processor of type `Qwen2VLImageProcessor` is now loaded as a fast processor by default, even if the model checkpoint was saved with a slow processor. This is a breaking change and may produce slightly different outputs. To continue using the slow processor, instantiate this class with `use_fast=False`. Note that this behavior will be extended to all models in a future release.
 You have video processor config saved in `preprocessor.json` file which is deprecated. Video processor configs should be saved in their own `video_preprocessor.json` file. You can rename the file or load and save the processor back which renames it automatically. Loading from `preprocessor.json` will be removed in v5.0.
-2025-08-02 14:44:13,205 - vlm_server - INFO - Model loaded successfully
-2025-08-02 14:44:13,206 - vlm_server - INFO - Initial VRAM status: allocated_gb=11.83 reserved_gb=11.83 free_gb=4.1 total_gb=15.93 usage_percentage=74.24
+2025-08-02 16:26:52,315 - vlm_server - INFO - Model loaded successfully
+2025-08-02 16:26:52,315 - vlm_server - INFO - Initial VRAM status: allocated_gb=11.83 reserved_gb=11.83 free_gb=4.1 total_gb=15.93 usage_percentage=74.24
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-INFO:     127.0.0.1:51292 - "GET /health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51302 - "GET /health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51312 - "GET /health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51320 - "GET /vram_status HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51326 - "POST /api/v1/generate HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51342 - "POST /api/v1/generate HTTP/1.1" 200 OK
-INFO:     127.0.0.1:48956 - "POST /api/v1/generate HTTP/1.1" 200 OK
-INFO:     127.0.0.1:39422 - "POST /api/v1/generate HTTP/1.1" 200 OK
-INFO:     127.0.0.1:60072 - "POST /api/v1/generate HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49282 - "POST /api/v1/generate HTTP/1.1" 200 OK
-INFO:     127.0.0.1:59970 - "POST /api/v1/generate HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49268 - "GET /invalid_endpoint HTTP/1.1" 404 Not Found
-INFO:     127.0.0.1:49276 - "POST /api/v1/generate HTTP/1.1" 422 Unprocessable Entity
-2025-08-02 14:47:43,787 - vlm_server - ERROR - Error during generation: list index out of range
-2025-08-02 14:47:43,790 - vlm_server - ERROR - Traceback (most recent call last):
-  File "/home/teke/projects/vlm_server/vlm_server.py", line 229, in generate
-    text = self.processor.apply_chat_template(
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/teke/pytorch-env/lib/python3.12/site-packages/transformers/utils/deprecation.py", line 172, in wrapped_func
-    return func(*args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^
-  File "/home/teke/pytorch-env/lib/python3.12/site-packages/transformers/processing_utils.py", line 1509, in apply_chat_template
-    isinstance(conversation[0], (list, tuple)) or hasattr(conversation[0], "content")
-               ~~~~~~~~~~~~^^^
-IndexError: list index out of range
-
-INFO:     127.0.0.1:49278 - "POST /api/v1/generate HTTP/1.1" 500 Internal Server Error
-2025-08-02 14:47:43,791 - vlm_server - INFO - Clearing VRAM...
-2025-08-02 14:47:43,903 - vlm_server - INFO - VRAM after clearing: allocated_gb=11.83 reserved_gb=11.85 free_gb=4.09 total_gb=15.93 usage_percentage=74.29
-INFO:     127.0.0.1:49288 - "POST /clear_vram HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49294 - "POST /api/v1/generate HTTP/1.1" 200 OK
-INFO:     127.0.0.1:46232 - "POST /api/v1/generate HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55710 - "POST /api/v1/generate HTTP/1.1" 200 OK
-INFO:     127.0.0.1:39776 - "GET /health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:35866 - "GET /vram_status HTTP/1.1" 200 OK
-INFO:     127.0.0.1:46970 - "POST /api/v1/generate HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55212 - "POST /api/v1/generate HTTP/1.1" 200 OK
-2025-08-02 14:49:14,367 - vlm_server - INFO - Clearing VRAM...
-2025-08-02 14:49:14,486 - vlm_server - INFO - VRAM after clearing: allocated_gb=11.83 reserved_gb=11.85 free_gb=4.09 total_gb=15.93 usage_percentage=74.29
-INFO:     127.0.0.1:52300 - "POST /clear_vram HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41710 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41726 - "GET /vram_status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41732 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41732 - "GET /vram_status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48060 - "OPTIONS /api/v1/generate HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48534 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48534 - "GET /vram_status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36168 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36168 - "GET /vram_status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50056 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50072 - "POST /api/v1/generate HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34312 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55162 - "GET /vram_status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35534 - "GET /vram_status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35528 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34312 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44210 - "POST /api/v1/generate HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35534 - "GET /vram_status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55162 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35528 - "GET /vram_status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35076 - "GET /vram_status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35072 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45178 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35528 - "GET /vram_status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35076 - "GET /health HTTP/1.1" 200 OK
