@@ -24,7 +24,9 @@ A comprehensive Vision Language Model (VLM) server with dual web interfaces for 
 
 ### **🔧 Document Processing Interface** (`/index.html`)
 - 🌐 **Modern UI** - Responsive design with drag & drop
-- 🏦 **Bank Transaction Extraction** - Parse statements and receipts
+- 🏦 **Bank Transaction Extraction** - Parse statements with editable table display
+- 📊 **Interactive Tables** - Edit, add, and delete transactions in real-time
+- 💾 **Export Options** - Save as CSV, Excel, or JSON for AI training
 - 📄 **Document Summarization** - AI-powered summaries and insights  
 - 🖼️ **Image Analysis** - Object detection, OCR, and description
 - 📝 **Text Extraction** - Advanced OCR with formatting preservation
@@ -109,11 +111,19 @@ python3 -m http.server 8080
 
 ## 🎯 Use Cases
 
-### 💳 **Bank Statement Processing**
+### 💳 **Bank Statement Processing with Interactive Tables**
 ```bash
 # Upload bank statement PDF or image
-# Extract: dates, amounts, descriptions, merchants
-# Output: Structured transaction table with totals
+# AI extracts transactions into editable table format
+# Features:
+# - Edit any transaction field (date, description, amount, category)
+# - Add new transactions with "Add Row" button
+# - Delete unwanted transactions
+# - Auto-categorization of transactions
+# - Visual indicators for modified rows
+# - Export to CSV or Excel formats
+# - Save modifications as JSON for AI training
+# Output: Interactive table with totals and export options
 ```
 
 ### 📊 **Document Analysis**
@@ -315,12 +325,20 @@ curl http://localhost:8000/health
 
 ## 📋 Roadmap
 
+### ✅ Completed Features
+- [x] **Conversation Memory** - Full context awareness in chat interface
+- [x] **Multi-Model Support** - Switch between 3B/7B models
+- [x] **CUDA Stability** - Fixed device-side assert errors
+- [x] **Interactive Bank Tables** - Editable transaction tables with CSV/Excel export
+- [x] **AI Training Data Export** - Save user modifications for model improvement
+
+### 🚧 Upcoming Features
 - [ ] **Video Processing** - Support for video analysis
 - [ ] **Batch API** - Process multiple files in single request  
 - [ ] **WebSocket Support** - Real-time streaming responses
 - [ ] **Authentication** - User management and API keys
 - [ ] **Cloud Deployment** - Docker and Kubernetes support
-- [ ] **Model Management** - Hot-swapping different models
+- [ ] **Persistent Storage** - Save chat history and edited tables
 
 ## 📄 License
 

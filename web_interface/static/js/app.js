@@ -554,16 +554,29 @@ class VLMApp {
     generateBankTransactionPrompt() {
         const options = [];
         if (document.getElementById('extractDates').checked) options.push('transaction dates');
-        if (document.getElementById('extractAmounts').checked) options.push('amounts');
+        if (document.getElementById('extractAmounts').checked) options.push('amounts (separate debit and credit)');
         if (document.getElementById('extractDescriptions').checked) options.push('descriptions');
         if (document.getElementById('extractBalances').checked) options.push('running balances');
         if (document.getElementById('categorizeTransactions').checked) options.push('transaction categories');
         if (document.getElementById('detectMerchants').checked) options.push('merchant names');
         
-        return `Analyze this bank statement or transaction document and extract the following information in a structured format: ${options.join(', ')}. 
-                Present the data in a clear table format with proper headers. 
-                If you find multiple transactions, list each one separately. 
-                Also provide a summary of total debits, credits, and account balance if available.`;
+        return `Analyze this bank statement or transaction document and extract the following information: ${options.join(', ')}. 
+                
+                IMPORTANT: Format the output as a table with these exact headers:
+                Date | Description | Debit | Credit | Balance
+                
+                Rules:
+                - Use consistent date format (MM/DD/YYYY or DD/MM/YYYY)
+                - Debit amounts should be positive numbers in the Debit column
+                - Credit amounts should be positive numbers in the Credit column  
+                - Leave empty cells blank (don't use 0.00 for empty cells)
+                - Include all transactions found in the document
+                - After the table, provide a summary with total debits and total credits
+                
+                Example format:
+                Date       | Description              | Debit   | Credit  | Balance
+                01/15/2024 | Grocery Store Purchase   | 45.32   |         | 1254.68
+                01/16/2024 | Salary Deposit          |         | 2500.00 | 3754.68`;
     }
     
     generateDocumentSummaryPrompt() {
@@ -638,20 +651,31 @@ class VLMApp {
         
         resultsSection.style.display = 'block';
         
-        let combinedResults = '';
         let totalTokens = 0;
         let totalTime = 0;
         
-        results.forEach((result, index) => {
-            combinedResults += `=== ${result.fileName} ===\n\n`;
-            combinedResults += result.result.response;
-            combinedResults += '\n\n';
-            
+        // Check if this is a bank transaction processing
+        const isBankTransaction = this.currentTool === 'bank-transactions';
+        
+        if (isBankTransaction && results.length > 0) {
+            // Try to parse and display bank transactions in table format
+            this.displayBankTransactionTable(results, resultsContent);
+        } else {
+            // Regular text display for other tools
+            let combinedResults = '';
+            results.forEach((result, index) => {
+                combinedResults += `=== ${result.fileName} ===\n\n`;
+                combinedResults += result.result.response;
+                combinedResults += '\n\n';
+            });
+            resultsContent.textContent = combinedResults;
+        }
+        
+        // Calculate totals
+        results.forEach(result => {
             totalTokens += result.result.usage.total_tokens;
             totalTime += result.result.processing_time;
         });
-        
-        resultsContent.textContent = combinedResults;
         
         // Update processing info
         document.getElementById('processingTime').textContent = `${totalTime.toFixed(2)}s`;
@@ -659,6 +683,439 @@ class VLMApp {
         
         // Scroll to results
         resultsSection.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    displayBankTransactionTable(results, container) {
+        // Store original response for reference
+        this.originalBankData = results;
+        
+        // Parse transactions from AI response
+        const transactions = this.parseBankTransactions(results);
+        
+        if (transactions.length === 0) {
+            // Fallback to text display if parsing fails
+            let combinedResults = '';
+            results.forEach((result, index) => {
+                combinedResults += `=== ${result.fileName} ===\n\n`;
+                combinedResults += result.result.response;
+                combinedResults += '\n\n';
+            });
+            container.textContent = combinedResults;
+            return;
+        }
+        
+        // Create table container
+        container.innerHTML = `
+            <div class="bank-table-container">
+                <div class="table-actions">
+                    <button class="btn btn-sm" onclick="app.addNewTransaction()">
+                        <i class="fas fa-plus"></i> Add Row
+                    </button>
+                    <button class="btn btn-sm" onclick="app.exportToCSV()">
+                        <i class="fas fa-file-csv"></i> Export CSV
+                    </button>
+                    <button class="btn btn-sm" onclick="app.exportToExcel()">
+                        <i class="fas fa-file-excel"></i> Export Excel
+                    </button>
+                    <button class="btn btn-sm" onclick="app.saveModifications()">
+                        <i class="fas fa-save"></i> Save Changes
+                    </button>
+                </div>
+                <div class="table-wrapper">
+                    <table id="bankTransactionTable" class="transaction-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Description</th>
+                                <th>Category</th>
+                                <th>Debit</th>
+                                <th>Credit</th>
+                                <th>Balance</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactionTableBody">
+                        </tbody>
+                        <tfoot>
+                            <tr class="summary-row">
+                                <td colspan="3"><strong>Total</strong></td>
+                                <td id="totalDebit"><strong>$0.00</strong></td>
+                                <td id="totalCredit"><strong>$0.00</strong></td>
+                                <td colspan="2"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                <div class="transaction-summary">
+                    <div id="transactionSummary"></div>
+                </div>
+            </div>
+        `;
+        
+        // Populate table
+        this.populateTransactionTable(transactions);
+        
+        // Store transactions for export
+        this.currentTransactions = transactions;
+    }
+
+    parseBankTransactions(results) {
+        const transactions = [];
+        
+        results.forEach(result => {
+            const text = result.result.response;
+            
+            // Try to extract transactions using various patterns
+            // This is a flexible parser that handles different AI response formats
+            const lines = text.split('\n');
+            let inTable = false;
+            
+            lines.forEach(line => {
+                // Skip empty lines and headers
+                if (!line.trim() || line.includes('---') || line.includes('===')) return;
+                
+                // Detect table start
+                if (line.toLowerCase().includes('date') && line.toLowerCase().includes('description')) {
+                    inTable = true;
+                    return;
+                }
+                
+                if (inTable) {
+                    // Try to parse transaction line
+                    const transaction = this.parseTransactionLine(line);
+                    if (transaction) {
+                        transactions.push(transaction);
+                    }
+                }
+            });
+        });
+        
+        return transactions;
+    }
+
+    parseTransactionLine(line) {
+        // Remove extra spaces and split by common delimiters
+        const parts = line.trim().split(/\s{2,}|\t|\|/).filter(p => p.trim());
+        
+        if (parts.length < 3) return null;
+        
+        // Try to identify transaction components
+        const transaction = {
+            id: Date.now() + Math.random(),
+            date: '',
+            description: '',
+            category: '',
+            debit: 0,
+            credit: 0,
+            balance: 0
+        };
+        
+        // Simple heuristic parsing
+        let partIndex = 0;
+        
+        // First part is usually date
+        if (parts[partIndex] && this.looksLikeDate(parts[partIndex])) {
+            transaction.date = parts[partIndex];
+            partIndex++;
+        }
+        
+        // Description is usually the longest text part
+        let descriptionParts = [];
+        while (partIndex < parts.length && !this.looksLikeMoney(parts[partIndex])) {
+            descriptionParts.push(parts[partIndex]);
+            partIndex++;
+        }
+        transaction.description = descriptionParts.join(' ');
+        
+        // Look for money amounts
+        while (partIndex < parts.length) {
+            const part = parts[partIndex];
+            if (this.looksLikeMoney(part)) {
+                const amount = this.parseAmount(part);
+                if (amount < 0 || part.includes('-') || part.toLowerCase().includes('debit')) {
+                    transaction.debit = Math.abs(amount);
+                } else {
+                    transaction.credit = amount;
+                }
+                
+                // Check if next part might be balance
+                if (partIndex + 1 < parts.length && this.looksLikeMoney(parts[partIndex + 1])) {
+                    transaction.balance = this.parseAmount(parts[partIndex + 1]);
+                    partIndex++;
+                }
+            }
+            partIndex++;
+        }
+        
+        // Auto-categorize if not already done
+        if (!transaction.category) {
+            transaction.category = this.autoCategorizeTrans(transaction.description);
+        }
+        
+        return transaction;
+    }
+
+    looksLikeDate(str) {
+        return /\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}|\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}/.test(str);
+    }
+
+    looksLikeMoney(str) {
+        return /[$£€]?\s*\d+[,.]?\d*|^\d+[,.]?\d*$/.test(str);
+    }
+
+    parseAmount(str) {
+        return parseFloat(str.replace(/[$£€,]/g, '')) || 0;
+    }
+
+    autoCategorizeTrans(description) {
+        const desc = description.toLowerCase();
+        
+        if (desc.includes('grocery') || desc.includes('food') || desc.includes('market')) return 'Groceries';
+        if (desc.includes('gas') || desc.includes('fuel') || desc.includes('petrol')) return 'Transportation';
+        if (desc.includes('restaurant') || desc.includes('cafe') || desc.includes('dining')) return 'Dining';
+        if (desc.includes('amazon') || desc.includes('online') || desc.includes('ebay')) return 'Shopping';
+        if (desc.includes('utility') || desc.includes('electric') || desc.includes('water')) return 'Utilities';
+        if (desc.includes('rent') || desc.includes('mortgage')) return 'Housing';
+        if (desc.includes('salary') || desc.includes('payroll') || desc.includes('wage')) return 'Income';
+        if (desc.includes('transfer') || desc.includes('payment')) return 'Transfer';
+        
+        return 'Other';
+    }
+
+    populateTransactionTable(transactions) {
+        const tbody = document.getElementById('transactionTableBody');
+        tbody.innerHTML = '';
+        
+        let totalDebit = 0;
+        let totalCredit = 0;
+        
+        transactions.forEach((trans, index) => {
+            const row = document.createElement('tr');
+            row.dataset.transactionId = trans.id;
+            
+            // Add modified class if transaction was edited
+            if (trans.modified) {
+                row.classList.add('modified');
+            }
+            
+            row.innerHTML = `
+                <td><input type="text" class="table-input" value="${trans.date}" data-field="date"></td>
+                <td><input type="text" class="table-input" value="${trans.description}" data-field="description"></td>
+                <td>
+                    <select class="table-select" data-field="category">
+                        <option value="Groceries" ${trans.category === 'Groceries' ? 'selected' : ''}>Groceries</option>
+                        <option value="Transportation" ${trans.category === 'Transportation' ? 'selected' : ''}>Transportation</option>
+                        <option value="Dining" ${trans.category === 'Dining' ? 'selected' : ''}>Dining</option>
+                        <option value="Shopping" ${trans.category === 'Shopping' ? 'selected' : ''}>Shopping</option>
+                        <option value="Utilities" ${trans.category === 'Utilities' ? 'selected' : ''}>Utilities</option>
+                        <option value="Housing" ${trans.category === 'Housing' ? 'selected' : ''}>Housing</option>
+                        <option value="Income" ${trans.category === 'Income' ? 'selected' : ''}>Income</option>
+                        <option value="Transfer" ${trans.category === 'Transfer' ? 'selected' : ''}>Transfer</option>
+                        <option value="Other" ${trans.category === 'Other' ? 'selected' : ''}>Other</option>
+                    </select>
+                </td>
+                <td><input type="number" class="table-input amount" value="${trans.debit}" data-field="debit" step="0.01"></td>
+                <td><input type="number" class="table-input amount" value="${trans.credit}" data-field="credit" step="0.01"></td>
+                <td><input type="number" class="table-input amount" value="${trans.balance}" data-field="balance" step="0.01"></td>
+                <td>
+                    <button class="btn-icon" onclick="app.deleteTransaction('${trans.id}')" title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            `;
+            
+            tbody.appendChild(row);
+            
+            totalDebit += trans.debit;
+            totalCredit += trans.credit;
+        });
+        
+        // Update totals
+        document.getElementById('totalDebit').innerHTML = `<strong>$${totalDebit.toFixed(2)}</strong>`;
+        document.getElementById('totalCredit').innerHTML = `<strong>$${totalCredit.toFixed(2)}</strong>`;
+        
+        // Add change listeners
+        tbody.querySelectorAll('input, select').forEach(input => {
+            input.addEventListener('change', () => this.handleTransactionEdit(input));
+        });
+    }
+
+    handleTransactionEdit(input) {
+        const row = input.closest('tr');
+        const transId = row.dataset.transactionId;
+        const field = input.dataset.field;
+        const value = input.type === 'number' ? parseFloat(input.value) || 0 : input.value;
+        
+        // Update transaction in memory
+        const trans = this.currentTransactions.find(t => t.id == transId);
+        if (trans) {
+            trans[field] = value;
+            trans.modified = true;
+            
+            // Add visual indicator that row was modified
+            row.classList.add('modified');
+            
+            // Recalculate totals if amounts changed
+            if (['debit', 'credit'].includes(field)) {
+                this.updateTotals();
+            }
+        }
+    }
+
+    updateTotals() {
+        let totalDebit = 0;
+        let totalCredit = 0;
+        
+        this.currentTransactions.forEach(trans => {
+            totalDebit += trans.debit || 0;
+            totalCredit += trans.credit || 0;
+        });
+        
+        document.getElementById('totalDebit').innerHTML = `<strong>$${totalDebit.toFixed(2)}</strong>`;
+        document.getElementById('totalCredit').innerHTML = `<strong>$${totalCredit.toFixed(2)}</strong>`;
+    }
+
+    deleteTransaction(transId) {
+        if (confirm('Are you sure you want to delete this transaction?')) {
+            this.currentTransactions = this.currentTransactions.filter(t => t.id != transId);
+            this.populateTransactionTable(this.currentTransactions);
+        }
+    }
+
+    addNewTransaction() {
+        const newTransaction = {
+            id: Date.now() + Math.random(),
+            date: new Date().toLocaleDateString('en-US'),
+            description: 'New Transaction',
+            category: 'Other',
+            debit: 0,
+            credit: 0,
+            balance: 0,
+            isNew: true,
+            modified: true
+        };
+        
+        this.currentTransactions.push(newTransaction);
+        this.populateTransactionTable(this.currentTransactions);
+        
+        // Focus on the new row's description field
+        setTimeout(() => {
+            const newRow = document.querySelector(`tr[data-transaction-id="${newTransaction.id}"]`);
+            if (newRow) {
+                const descInput = newRow.querySelector('input[data-field="description"]');
+                if (descInput) {
+                    descInput.focus();
+                    descInput.select();
+                }
+            }
+        }, 100);
+    }
+
+    exportToCSV() {
+        if (!this.currentTransactions || this.currentTransactions.length === 0) {
+            this.showToast('No transactions to export', 'error');
+            return;
+        }
+        
+        let csv = 'Date,Description,Category,Debit,Credit,Balance\n';
+        
+        this.currentTransactions.forEach(trans => {
+            csv += `"${trans.date}","${trans.description}","${trans.category}",${trans.debit},${trans.credit},${trans.balance}\n`;
+        });
+        
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `bank_transactions_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        this.showToast('Exported to CSV successfully', 'success');
+    }
+
+    exportToExcel() {
+        if (!this.currentTransactions || this.currentTransactions.length === 0) {
+            this.showToast('No transactions to export', 'error');
+            return;
+        }
+        
+        // Create a simple HTML table for Excel
+        let html = `
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <style>
+                    table { border-collapse: collapse; }
+                    th, td { border: 1px solid black; padding: 5px; }
+                    th { background-color: #f0f0f0; font-weight: bold; }
+                    .number { text-align: right; }
+                </style>
+            </head>
+            <body>
+                <table>
+                    <tr>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th>Category</th>
+                        <th>Debit</th>
+                        <th>Credit</th>
+                        <th>Balance</th>
+                    </tr>
+        `;
+        
+        this.currentTransactions.forEach(trans => {
+            html += `
+                <tr>
+                    <td>${trans.date}</td>
+                    <td>${trans.description}</td>
+                    <td>${trans.category}</td>
+                    <td class="number">${trans.debit.toFixed(2)}</td>
+                    <td class="number">${trans.credit.toFixed(2)}</td>
+                    <td class="number">${trans.balance.toFixed(2)}</td>
+                </tr>
+            `;
+        });
+        
+        html += '</table></body></html>';
+        
+        const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `bank_transactions_${new Date().toISOString().split('T')[0]}.xls`;
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        this.showToast('Exported to Excel successfully', 'success');
+    }
+
+    saveModifications() {
+        if (!this.currentTransactions || this.currentTransactions.length === 0) {
+            this.showToast('No transactions to save', 'error');
+            return;
+        }
+        
+        // Create training data object
+        const trainingData = {
+            timestamp: new Date().toISOString(),
+            originalResponse: this.originalBankData,
+            editedTransactions: this.currentTransactions,
+            modifications: this.currentTransactions.filter(t => t.modified).length,
+            userAgent: navigator.userAgent
+        };
+        
+        // Convert to JSON
+        const json = JSON.stringify(trainingData, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `bank_training_data_${new Date().toISOString().split('T')[0]}_${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        this.showToast('Training data saved successfully', 'success');
     }
     
     showProgress() {
