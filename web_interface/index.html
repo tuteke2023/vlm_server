@@ -61,6 +61,83 @@
                     </ul>
                 </nav>
 
+                <!-- VRAM & Model Settings -->
+                <div class="model-settings">
+                    <h3>Model Settings</h3>
+                    
+                    <!-- VRAM Status Display -->
+                    <div class="vram-status-panel">
+                        <div class="status-header">
+                            <i class="fas fa-microchip"></i>
+                            <span>VRAM Status</span>
+                        </div>
+                        <div class="vram-info">
+                            <div class="vram-bar">
+                                <div class="vram-fill" id="vramBar"></div>
+                                <div class="vram-text" id="vramText">--</div>
+                            </div>
+                            <div class="vram-details">
+                                <span id="vramDetails">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Model Selection -->
+                    <div class="model-panel">
+                        <div class="panel-header">
+                            <label for="modelSelect">Model:</label>
+                            <select id="modelSelect">
+                                <option value="Qwen/Qwen2.5-VL-7B-Instruct">7B-Instruct (High Quality)</option>
+                                <option value="Qwen/Qwen2.5-VL-3B-Instruct">3B-Instruct (Lower VRAM)</option>
+                            </select>
+                        </div>
+                        <div class="model-info" id="modelInfo">
+                            <small>Current: Loading...</small>
+                        </div>
+                    </div>
+                    
+                    <!-- Model Actions -->
+                    <div class="model-actions-panel">
+                        <button class="action-btn" id="reloadModelBtn">
+                            <i class="fas fa-sync-alt"></i>
+                            Switch Model
+                        </button>
+                        <div class="action-info">
+                            <small>Switch between models for different VRAM usage</small>
+                        </div>
+                    </div>
+                    
+                    <!-- Quantization Controls (Hidden - Not Working) -->
+                    <div class="quantization-panel" style="display: none;">
+                        <div class="panel-header">
+                            <label for="quantizationSelect">Quantization:</label>
+                            <select id="quantizationSelect">
+                                <option value="none">None (Full Precision)</option>
+                                <option value="8bit">8-bit (Memory Optimization)</option>
+                                <option value="4bit">4-bit (Aggressive Optimization)</option>
+                            </select>
+                        </div>
+                        <div class="quantization-info" id="quantizationInfo">
+                            <small>Current: No quantization active</small>
+                        </div>
+                    </div>
+                    
+                    <!-- Safety Settings -->
+                    <div class="safety-panel">
+                        <div class="safety-header">
+                            <i class="fas fa-shield-alt"></i>
+                            <span>Safety Settings</span>
+                        </div>
+                        <label class="option-item">
+                            <input type="checkbox" id="enableSafetyCheck" checked>
+                            <span>VRAM Safety Check</span>
+                        </label>
+                        <div class="safety-info">
+                            <small>Prevents processing if VRAM would exceed 90%</small>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Quick Actions -->
                 <div class="quick-actions">
                     <h3>Quick Actions</h3>
@@ -356,7 +433,7 @@
                         </div>
                         <div class="info-item">
                             <span class="info-label">Model:</span>
-                            <span class="info-value">Qwen2.5-VL-7B-Instruct</span>
+                            <span class="info-value" id="currentModelDisplay">Loading...</span>
                         </div>
                     </div>
                 </div>

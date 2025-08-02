@@ -10,6 +10,7 @@ class VLMApp {
         this.uploadedFiles = new Map();
         this.isProcessing = false;
         
+        this.currentQuantization = 'none';
         this.init();
     }
     
@@ -17,11 +18,14 @@ class VLMApp {
         this.setupEventListeners();
         this.checkServerStatus();
         this.updateVramStatus();
+        this.updateDetailedVramStatus();
+        this.loadAvailableModels();
         
         // Update server status every 30 seconds
         setInterval(() => {
             this.checkServerStatus();
             this.updateVramStatus();
+            this.updateDetailedVramStatus();
         }, 30000);
     }
     
@@ -49,6 +53,20 @@ class VLMApp {
         
         document.getElementById('exportResultsBtn').addEventListener('click', () => {
             this.exportResults();
+        });
+        
+        // Model settings
+        document.getElementById('reloadModelBtn').addEventListener('click', () => {
+            this.reloadModel();
+        });
+        
+        // Quantization is disabled
+        // document.getElementById('quantizationSelect').addEventListener('change', (e) => {
+        //     this.updateQuantizationInfo(e.target.value);
+        // });
+        
+        document.getElementById('modelSelect').addEventListener('change', (e) => {
+            this.updateModelInfo(e.target.value);
         });
         
         // Result actions
@@ -167,6 +185,142 @@ class VLMApp {
         }
     }
     
+    async updateDetailedVramStatus() {
+        try {
+            const response = await fetch(`${this.serverUrl}/vram_status`);
+            const data = await response.json();
+            
+            // Update VRAM bar
+            const vramBar = document.getElementById('vramBar');
+            const vramText = document.getElementById('vramText');
+            const vramDetails = document.getElementById('vramDetails');
+            
+            vramBar.style.width = `${data.usage_percentage}%`;
+            vramText.textContent = `${data.usage_percentage.toFixed(1)}%`;
+            vramDetails.textContent = `${data.allocated_gb.toFixed(1)}GB / ${data.total_gb.toFixed(1)}GB allocated`;
+            
+            // Update color based on usage
+            vramBar.className = 'vram-fill';
+            if (data.usage_percentage >= 90) {
+                vramBar.classList.add('danger');
+            } else if (data.usage_percentage >= 75) {
+                vramBar.classList.add('warning');
+            }
+            
+        } catch (error) {
+            console.error('Failed to update detailed VRAM status:', error);
+            const vramDetails = document.getElementById('vramDetails');
+            vramDetails.textContent = 'Failed to load VRAM status';
+        }
+    }
+    
+    // Quantization options removed - functionality disabled
+    
+    async loadAvailableModels() {
+        try {
+            const response = await fetch(`${this.serverUrl}/available_models`);
+            const models = await response.json();
+            
+            const select = document.getElementById('modelSelect');
+            select.innerHTML = '';
+            
+            models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.model_id;
+                option.textContent = `${model.size} - ${model.description} (~${model.vram_gb}GB VRAM)`;
+                if (model.is_current) {
+                    option.selected = true;
+                    this.updateModelInfo(model.model_id, model);
+                    // Update the results section model display
+                    const currentModelDisplay = document.getElementById('currentModelDisplay');
+                    if (currentModelDisplay) {
+                        currentModelDisplay.textContent = model.name;
+                    }
+                }
+                select.appendChild(option);
+            });
+            
+        } catch (error) {
+            console.error('Failed to load available models:', error);
+        }
+    }
+    
+    updateModelInfo(modelId, modelData = null) {
+        const info = document.getElementById('modelInfo');
+        
+        if (modelData) {
+            info.innerHTML = `<small>Current: ${modelData.size} (~${modelData.vram_gb}GB VRAM)</small>`;
+        } else {
+            // Find model info from select options
+            const select = document.getElementById('modelSelect');
+            const selectedOption = select.querySelector(`option[value="${modelId}"]`);
+            if (selectedOption) {
+                info.innerHTML = `<small>Selected: ${selectedOption.textContent}</small>`;
+            }
+        }
+    }
+    
+    // Quantization info removed - functionality disabled
+    
+    async reloadModel() {
+        const modelName = document.getElementById('modelSelect').value;
+        const reloadBtn = document.getElementById('reloadModelBtn');
+        
+        try {
+            reloadBtn.disabled = true;
+            reloadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Reloading...';
+            
+            this.showToast('Reloading model with new settings...', 'info');
+            
+            const response = await fetch(`${this.serverUrl}/reload_model`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model_name: modelName
+                })
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                this.showToast(`Model switched successfully to ${result.current_model.split('/').pop()}`, 'success');
+                
+                // Update current model display
+                const currentModelDisplay = document.getElementById('currentModelDisplay');
+                if (currentModelDisplay) {
+                    currentModelDisplay.textContent = result.current_model.split('/').pop();
+                }
+                
+                // Update VRAM status after reload
+                setTimeout(() => {
+                    this.updateVramStatus();
+                    this.updateDetailedVramStatus();
+                    this.loadAvailableModels(); // Refresh model selection
+                }, 2000);
+            } else {
+                const error = await response.json();
+                this.showToast(`Failed to reload model: ${error.detail}`, 'error');
+            }
+            
+        } catch (error) {
+            this.showToast(`Error reloading model: ${error.message}`, 'error');
+        } finally {
+            reloadBtn.disabled = false;
+            reloadBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Switch Model';
+        }
+    }
+    
+    async predictVramUsage(inputTokens, outputTokens) {
+        try {
+            const response = await fetch(`${this.serverUrl}/vram_prediction?input_tokens=${inputTokens}&output_tokens=${outputTokens}`);
+            return await response.json();
+        } catch (error) {
+            console.error('Failed to predict VRAM usage:', error);
+            return null;
+        }
+    }
+    
     handleFiles(files, uploadAreaId) {
         const fileArray = Array.from(files);
         
@@ -277,6 +431,18 @@ class VLMApp {
     async processFiles() {
         if (this.isProcessing || this.uploadedFiles.size === 0) return;
         
+        // VRAM safety check if enabled
+        if (document.getElementById('enableSafetyCheck').checked) {
+            const maxTokens = this.getMaxTokens();
+            const prediction = await this.predictVramUsage(512, maxTokens);
+            
+            if (prediction && !prediction.is_safe) {
+                const message = `VRAM safety check failed. Predicted usage: ${prediction.predicted_percentage.toFixed(1)}% (limit: 90%). Try switching to the 3B model for lower VRAM usage.`;
+                this.showToast(message, 'warning');
+                return;
+            }
+        }
+        
         this.isProcessing = true;
         this.showProgress();
         
@@ -301,10 +467,23 @@ class VLMApp {
             
         } catch (error) {
             console.error('Processing error:', error);
-            this.showToast(`Processing failed: ${error.message}`, 'error');
+            let errorMessage = error.message;
+            
+            // Handle VRAM safety errors specially
+            if (error.message.includes('VRAM safety check failed')) {
+                errorMessage = 'VRAM usage would be too high. Try switching to the 3B model or reducing max tokens.';
+            }
+            
+            this.showToast(`Processing failed: ${errorMessage}`, 'error');
         } finally {
             this.isProcessing = false;
             this.hideProgress();
+            
+            // Update VRAM status after processing
+            setTimeout(() => {
+                this.updateVramStatus();
+                this.updateDetailedVramStatus();
+            }, 1000);
         }
     }
     
@@ -334,7 +513,8 @@ class VLMApp {
             body: JSON.stringify({
                 messages: messages,
                 max_new_tokens: this.getMaxTokens(),
-                temperature: 0.7
+                temperature: 0.7,
+                enable_safety_check: document.getElementById('enableSafetyCheck').checked
             })
         });
         
