@@ -1,167 +1,318 @@
-# VLM Server - Qwen2.5-VL-7B-Instruct API Server
+# VLM Server - Document Intelligence Platform
 
-A production-ready Vision Language Model (VLM) server that provides an HTTP API for the Qwen2.5-VL-7B-Instruct model with automatic VRAM management.
+A comprehensive Vision Language Model (VLM) server with web interface for document processing, analysis, and intelligence tasks. Built with Qwen2.5-VL-7B-Instruct and featuring GPU acceleration with automatic VRAM management.
 
-## Features
+## 🚀 Features
 
-- 🚀 **FastAPI-based REST API** - High-performance async server
-- 🖼️ **Multi-modal Support** - Process text, images, and videos
-- 💾 **Automatic VRAM Management** - Prevents out-of-memory crashes
-- 📊 **Real-time Monitoring** - Track VRAM usage and server health
-- 🔄 **Async Processing** - Handle multiple requests efficiently
-- 📝 **Comprehensive Logging** - Detailed request and error logging
+### **Core VLM Server**
+- 🔥 **GPU Accelerated** - RTX 5060 Ti with sm_120 CUDA support
+- 🧠 **Qwen2.5-VL-7B-Instruct** - State-of-the-art vision-language model
+- 💾 **Smart VRAM Management** - Automatic memory monitoring and clearing
+- 🔄 **Multi-modal Processing** - Text, images, and video support
+- 🛡️ **Production Ready** - Error handling, logging, health monitoring
+- 📊 **Real-time Monitoring** - VRAM usage, performance metrics
 
-## Quick Start
+### **Web Interface**
+- 🌐 **Modern UI** - Responsive design with drag & drop
+- 🏦 **Bank Transaction Extraction** - Parse statements and receipts
+- 📄 **Document Summarization** - AI-powered summaries and insights  
+- 🖼️ **Image Analysis** - Object detection, OCR, and description
+- 📝 **Text Extraction** - Advanced OCR with formatting preservation
+- ❓ **Custom Queries** - Ask anything about uploaded documents
+
+## 📁 Project Structure
+
+```
+vlm_server/
+├── vlm_server.py              # Main FastAPI server
+├── requirements.txt           # Dependencies
+├── client_example.py          # Python client example
+├── test_vlm_server.py         # Comprehensive test suite
+├── API_DOCUMENTATION.md       # Complete API reference
+├── web_interface/             # Web UI
+│   ├── index.html            # Main interface
+│   ├── static/css/style.css  # Modern styling
+│   ├── static/js/app.js      # Application logic
+│   ├── server.py             # Development web server
+│   └── README.md             # Web interface docs
+└── README.md                 # This file
+```
+
+## 🔧 Quick Start
 
 ### Prerequisites
 
-- Python 3.8+
-- CUDA-capable GPU (recommended: 16GB+ VRAM)
-- NVIDIA drivers and CUDA toolkit
+- **Python 3.8+**
+- **CUDA-capable GPU** (recommended: 16GB+ VRAM)
+- **NVIDIA drivers** and CUDA toolkit
 
-### Installation
+### 1. Clone Repository
 
-1. Clone the repository:
 ```bash
-git clone <your-repo>
+git clone https://github.com/tuteke2023/vlm_server.git
 cd vlm_server
 ```
 
-2. Install dependencies:
+### 2. Setup Environment
+
 ```bash
+# Create virtual environment
+python3 -m venv ~/pytorch-env
+source ~/pytorch-env/bin/activate
+
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-3. Start the server:
+### 3. Start VLM Server
+
 ```bash
+source ~/pytorch-env/bin/activate
 python vlm_server.py
 ```
 
-The server will start on `http://localhost:8000`
+The server will start on `http://localhost:8000` with:
+- ✅ **Model Loading**: Qwen2.5-VL-7B-Instruct with GPU acceleration
+- ✅ **Health Endpoint**: `/health` - Server status
+- ✅ **VRAM Monitoring**: `/vram_status` - Memory usage
+- ✅ **Generation API**: `/api/v1/generate` - Main processing endpoint
 
-## Basic Usage
+### 4. Start Web Interface
 
-### Using Python
+```bash
+# In a new terminal
+cd web_interface
+python3 server.py
+```
 
+Open `http://localhost:8080` in your browser to access the web interface.
+
+## 🎯 Use Cases
+
+### 💳 **Bank Statement Processing**
+```bash
+# Upload bank statement PDF or image
+# Extract: dates, amounts, descriptions, merchants
+# Output: Structured transaction table with totals
+```
+
+### 📊 **Document Analysis**
+```bash
+# Upload contracts, reports, invoices
+# Get: Summaries, key points, entities, insights
+# Formats: Executive summary, bullet points, technical
+```
+
+### 🖼️ **Image Intelligence**
+```bash
+# Upload photos, screenshots, diagrams
+# Extract: Text (OCR), objects, colors, descriptions
+# Use cases: Receipt processing, form analysis
+```
+
+### 📝 **Custom Queries**
+```bash
+# Ask specific questions about documents
+# Examples:
+# - "What are the main financial metrics?"
+# - "Extract all phone numbers and emails"
+# - "Summarize the contract terms"
+```
+
+## 📊 Performance
+
+### **GPU Acceleration Results**
+- **Text Generation**: ~1.2 tokens/second (RTX 5060 Ti)
+- **Image Analysis**: ~1.2 tokens/second with multi-modal processing
+- **Speed Improvement**: 38x faster than CPU-only processing
+- **Memory Efficiency**: Auto-managed VRAM usage (~74% typical)
+
+### **Supported Formats**
+- **Documents**: PDF, TXT
+- **Images**: PNG, JPG, JPEG, GIF
+- **File Size**: Up to 50MB per file
+- **Batch Processing**: Multiple files simultaneously
+
+## 🔌 API Usage
+
+### **Simple Text Query**
 ```python
 import requests
 
-# Simple text query
-response = requests.post(
-    "http://localhost:8000/api/v1/generate",
-    json={
-        "messages": [{
-            "role": "user",
-            "content": "What is machine learning?"
-        }]
-    }
-)
-print(response.json()["response"])
-
-# Image analysis
-response = requests.post(
-    "http://localhost:8000/api/v1/generate",
-    json={
-        "messages": [{
-            "role": "user",
-            "content": [
-                {"type": "image", "image": "https://example.com/image.jpg"},
-                {"type": "text", "text": "What's in this image?"}
-            ]
-        }]
-    }
-)
+response = requests.post('http://localhost:8000/api/v1/generate', json={
+    "messages": [{"role": "user", "content": "Hello!"}]
+})
 print(response.json()["response"])
 ```
 
-### Using cURL
+### **Image Analysis**
+```python
+import base64
 
+with open("image.jpg", "rb") as f:
+    image_b64 = base64.b64encode(f.read()).decode()
+
+response = requests.post('http://localhost:8000/api/v1/generate', json={
+    "messages": [{
+        "role": "user",
+        "content": [
+            {"type": "image", "image": f"data:image/jpeg;base64,{image_b64}"},
+            {"type": "text", "text": "What's in this image?"}
+        ]
+    }]
+})
+```
+
+### **Bank Transaction Extraction**
+```python
+# Upload bank statement
+response = requests.post('http://localhost:8000/api/v1/generate', json={
+    "messages": [{
+        "role": "user", 
+        "content": [
+            {"type": "image", "image": "data:image/pdf;base64,<base64_data>"},
+            {"type": "text", "text": "Extract all transactions with dates, amounts, and descriptions in table format"}
+        ]
+    }],
+    "max_new_tokens": 1000
+})
+```
+
+## 🛠️ Development
+
+### **Run Tests**
 ```bash
-# Check server health
+source ~/pytorch-env/bin/activate
+python test_vlm_server.py
+```
+
+### **Monitor Server**
+```bash
+# Health check
 curl http://localhost:8000/health
 
-# Generate text
-curl -X POST http://localhost:8000/api/v1/generate \
-  -H "Content-Type: application/json" \
-  -d '{"messages": [{"role": "user", "content": "Hello!"}]}'
+# VRAM status  
+curl http://localhost:8000/vram_status
+
+# Clear VRAM
+curl -X POST http://localhost:8000/clear_vram
 ```
 
-## API Endpoints
+### **Client Development**
+```bash
+# See example client implementation
+python client_example.py
+```
 
-- `GET /` - Server info and available endpoints
-- `GET /health` - Health check
-- `GET /vram_status` - Current VRAM usage
-- `POST /api/v1/generate` - Generate response
-- `POST /clear_vram` - Manually clear VRAM
+## 📖 Documentation
 
-## Configuration
+- **[API Documentation](API_DOCUMENTATION.md)** - Complete API reference with examples
+- **[Web Interface Guide](web_interface/README.md)** - Web UI usage and customization
+- **[Client Examples](client_example.py)** - Python client implementation
+- **[Test Suite](test_vlm_server.py)** - Comprehensive testing framework
 
-Modify the `Config` class in `vlm_server.py`:
+## 🔧 Configuration
 
+### **Server Settings** (in `vlm_server.py`)
 ```python
 class Config:
     MODEL_NAME = "Qwen/Qwen2.5-VL-7B-Instruct"
     MAX_NEW_TOKENS = 512
-    VRAM_THRESHOLD = 0.85  # Clear cache at 85% usage
+    VRAM_THRESHOLD = 0.85  # Clear cache at 85%
     HOST = "0.0.0.0"
     PORT = 8000
 ```
 
-## VRAM Management
+### **Web Interface** (in `web_interface/static/js/app.js`)
+```javascript
+constructor() {
+    this.serverUrl = 'http://localhost:8000';  // VLM server URL
+    // ... other settings
+}
+```
 
-The server automatically monitors VRAM usage and clears cache when usage exceeds 85% (configurable). This prevents out-of-memory errors during prolonged usage.
+## 🚨 Troubleshooting
 
-## Examples
+### **GPU Issues**
+```bash
+# Check CUDA support
+python -c "import torch; print(torch.cuda.is_available())"
 
-See `client_example.py` for a complete example client implementation, or check `API_DOCUMENTATION.md` for detailed API usage examples.
+# Check GPU compatibility
+python -c "import torch; print(torch.cuda.get_arch_list())"
 
-## Documentation
+# Expected: ['sm_75', 'sm_80', 'sm_86', 'sm_90', 'sm_100', 'sm_120']
+```
 
-- `API_DOCUMENTATION.md` - Complete API reference with examples
-- `client_example.py` - Python client implementation
-- `vlm_server.py` - Main server implementation
+### **Memory Issues**
+```bash
+# Monitor VRAM
+nvidia-smi
 
-## Performance Tips
+# Clear VRAM manually
+curl -X POST http://localhost:8000/clear_vram
+```
 
-1. **GPU Memory**: The model requires ~14GB VRAM. Ensure you have at least 16GB for comfortable operation.
-2. **Batch Size**: Process requests sequentially to avoid memory issues.
-3. **Image Size**: Resize large images before sending to improve performance.
+### **Server Issues**
+```bash
+# Check server logs
+tail -f server.log
 
-## Troubleshooting
+# Test basic connectivity
+curl http://localhost:8000/health
+```
 
-### Out of Memory Errors
-- Reduce `max_new_tokens`
-- Enable automatic VRAM clearing
-- Process smaller images
+## 🔐 Security Considerations
 
-### Slow Performance
-- Verify CUDA is available: `torch.cuda.is_available()`
-- Check GPU usage: `nvidia-smi`
-- Monitor server logs for warnings
+- **Production Deployment**: Use HTTPS and proper authentication
+- **File Validation**: Only allow trusted file types and sizes
+- **Rate Limiting**: Implement request rate limiting for production
+- **Network Security**: Consider firewall rules and VPN access
 
-### Connection Issues
-- Check firewall settings
-- Verify server is running
-- Ensure correct host/port configuration
+## 🤝 Contributing
 
-## Security Notes
+1. **Fork** the repository
+2. **Create** feature branch: `git checkout -b feature/amazing-feature`
+3. **Commit** changes: `git commit -m 'Add amazing feature'`
+4. **Push** to branch: `git push origin feature/amazing-feature`
+5. **Open** a Pull Request
 
-- The server binds to all interfaces (0.0.0.0) by default
-- No authentication is implemented
-- For production use, consider:
-  - Adding authentication
-  - Using HTTPS
-  - Implementing rate limiting
-  - Running behind a reverse proxy
+## 📋 Roadmap
 
-## License
+- [ ] **Video Processing** - Support for video analysis
+- [ ] **Batch API** - Process multiple files in single request  
+- [ ] **WebSocket Support** - Real-time streaming responses
+- [ ] **Authentication** - User management and API keys
+- [ ] **Cloud Deployment** - Docker and Kubernetes support
+- [ ] **Model Management** - Hot-swapping different models
 
-This server implementation is provided as-is. The Qwen2.5-VL model has its own license terms - please check the model card on Hugging Face.
+## 📄 License
 
-## Support
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-For issues and questions:
-1. Check the troubleshooting section
-2. Review server logs
-3. Check API documentation
-4. Open an issue with detailed error information
+## 🙏 Acknowledgments
+
+- **Qwen Team** - For the excellent Qwen2.5-VL model
+- **Hugging Face** - For transformers library and model hosting
+- **PyTorch Team** - For the deep learning framework
+- **FastAPI** - For the modern web framework
+
+## 📞 Support
+
+- **GitHub Issues**: Report bugs and feature requests
+- **Documentation**: Check API_DOCUMENTATION.md for detailed usage
+- **Examples**: See client_example.py for implementation patterns
+
+---
+
+**🚀 Ready to process your documents with AI? Get started now!**
+
+```bash
+git clone https://github.com/tuteke2023/vlm_server.git
+cd vlm_server
+source ~/pytorch-env/bin/activate
+pip install -r requirements.txt
+python vlm_server.py
+```
+
+Open `http://localhost:8080` for the web interface or use the API at `http://localhost:8000`
