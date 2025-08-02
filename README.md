@@ -1,41 +1,56 @@
-# VLM Server - Document Intelligence Platform
+# VLM Server - Vision Language Model with Conversational AI
 
-A comprehensive Vision Language Model (VLM) server with web interface for document processing, analysis, and intelligence tasks. Built with Qwen2.5-VL-7B-Instruct and featuring GPU acceleration with automatic VRAM management.
+A comprehensive Vision Language Model (VLM) server with dual web interfaces for document processing and conversational AI. Built with Qwen2.5-VL models (3B/7B) featuring GPU acceleration, conversation memory, and automatic VRAM management.
 
 ## 🚀 Features
 
 ### **Core VLM Server**
 - 🔥 **GPU Accelerated** - RTX 5060 Ti with sm_120 CUDA support
-- 🧠 **Qwen2.5-VL-7B-Instruct** - State-of-the-art vision-language model
-- 💾 **Smart VRAM Management** - Automatic memory monitoring and clearing
+- 🧠 **Multi-Model Support** - Qwen2.5-VL-3B/7B-Instruct models with hot-swapping
+- 💾 **Smart VRAM Management** - Automatic memory monitoring and safety limits
 - 🔄 **Multi-modal Processing** - Text, images, and video support
 - 🛡️ **Production Ready** - Error handling, logging, health monitoring
 - 📊 **Real-time Monitoring** - VRAM usage, performance metrics
+- 🔧 **CUDA Stability** - Fixed device-side assert errors with official HF patterns
 
-### **Web Interface**
+### **💬 Chat Interface** (`/chat.html`)
+- 🗣️ **Conversational AI** - Natural chat with vision-language model
+- 🧠 **Conversation Memory** - Remembers entire chat history for context
+- 📱 **WhatsApp-style UI** - Modern chat bubbles with timestamps
+- 🖼️ **Image Chat** - Upload and discuss images in conversation
+- 📤 **Drag & Drop** - Easy image sharing in chat
+- 💾 **Export Conversations** - Save chat history as JSON
+- 📊 **Context Indicators** - Visual feedback on conversation memory
+
+### **🔧 Document Processing Interface** (`/index.html`)
 - 🌐 **Modern UI** - Responsive design with drag & drop
 - 🏦 **Bank Transaction Extraction** - Parse statements and receipts
 - 📄 **Document Summarization** - AI-powered summaries and insights  
 - 🖼️ **Image Analysis** - Object detection, OCR, and description
 - 📝 **Text Extraction** - Advanced OCR with formatting preservation
 - ❓ **Custom Queries** - Ask anything about uploaded documents
+- 🔄 **Model Selection** - Switch between 3B/7B models for different VRAM needs
 
 ## 📁 Project Structure
 
 ```
 vlm_server/
-├── vlm_server.py              # Main FastAPI server
-├── requirements.txt           # Dependencies
-├── client_example.py          # Python client example
-├── test_vlm_server.py         # Comprehensive test suite
-├── API_DOCUMENTATION.md       # Complete API reference
-├── web_interface/             # Web UI
-│   ├── index.html            # Main interface
-│   ├── static/css/style.css  # Modern styling
-│   ├── static/js/app.js      # Application logic
-│   ├── server.py             # Development web server
-│   └── README.md             # Web interface docs
-└── README.md                 # This file
+├── vlm_server.py                      # Main FastAPI server with multi-model support
+├── requirements.txt                   # Dependencies
+├── client_example.py                  # Python client example
+├── test_vlm_server.py                 # Comprehensive test suite
+├── test_chat_interface.py             # Chat interface API tests  
+├── test_conversation_context.py       # Conversation memory tests
+├── API_DOCUMENTATION.md               # Complete API reference
+├── web_interface/                     # Dual Web UI
+│   ├── index.html                    # Document processing interface
+│   ├── chat.html                     # Conversational AI interface
+│   ├── static/css/style.css          # Shared modern styling
+│   ├── static/js/app.js              # Document processing logic
+│   ├── static/js/chat.js             # Chat interface with context memory
+│   ├── server.py                     # Development web server
+│   └── README.md                     # Web interface docs
+└── README.md                         # This file
 ```
 
 ## 🔧 Quick Start
@@ -72,9 +87,10 @@ python vlm_server.py
 ```
 
 The server will start on `http://localhost:8000` with:
-- ✅ **Model Loading**: Qwen2.5-VL-7B-Instruct with GPU acceleration
+- ✅ **Model Loading**: Qwen2.5-VL-3B-Instruct (default for safe VRAM usage)
 - ✅ **Health Endpoint**: `/health` - Server status
 - ✅ **VRAM Monitoring**: `/vram_status` - Memory usage
+- ✅ **Model Management**: `/available_models`, `/reload_model` - Multi-model support
 - ✅ **Generation API**: `/api/v1/generate` - Main processing endpoint
 
 ### 4. Start Web Interface
@@ -82,10 +98,14 @@ The server will start on `http://localhost:8000` with:
 ```bash
 # In a new terminal
 cd web_interface
-python3 server.py
+python3 -m http.server 8080
 ```
 
-Open `http://localhost:8080` in your browser to access the web interface.
+## 🌐 **Access the Interfaces**
+
+- **💬 Chat Interface**: `http://localhost:8080/chat.html` - Conversational AI with memory
+- **🔧 Document Processing**: `http://localhost:8080/index.html` - Specialized document tools
+- **🔗 Navigation**: Both interfaces have navigation links between them
 
 ## 🎯 Use Cases
 
@@ -117,6 +137,22 @@ Open `http://localhost:8080` in your browser to access the web interface.
 # - "What are the main financial metrics?"
 # - "Extract all phone numbers and emails"
 # - "Summarize the contract terms"
+```
+
+### 💬 **Conversational AI with Memory**
+```bash
+# Natural multi-turn conversations with context
+# Examples:
+# - User: "My name is John"
+# - AI: "Nice to meet you, John!"
+# - User: "What's my name?"
+# - AI: "Your name is John."
+# 
+# Upload images and discuss them:
+# - Upload product image
+# - Ask: "What product is this?"
+# - Follow up: "What are its main features?"
+# - Later: "Compare it to the product we discussed earlier"
 ```
 
 ## 📊 Performance

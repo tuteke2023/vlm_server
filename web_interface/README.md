@@ -148,6 +148,18 @@ Query: "Extract merchant name, date, total amount, and itemized purchases"
 Result: Structured receipt data
 ```
 
+### 🗣️ **Conversational Analysis**
+```
+Interface: Chat
+Scenario: Multi-step document analysis
+User: "I'm analyzing quarterly sales data"
+AI: "I'd be happy to help with your quarterly sales analysis."
+User: [Uploads sales chart] "This shows Q3 performance"
+AI: "I can see your Q3 sales chart showing..."
+User: "How does this compare to what I mentioned earlier?"
+AI: [Remembers context] "Based on your quarterly sales data analysis..."
+```
+
 ### 🖥️ **Image Understanding**
 ```
 Upload: Screenshot or diagram

@@ -4,8 +4,10 @@ This document describes how to connect to and use the Vision Language Model (VLM
 
 ## Overview
 
-The VLM server provides a REST API for interacting with the Qwen2.5-VL-7B-Instruct model. It supports:
+The VLM server provides a REST API for interacting with Qwen2.5-VL models (3B/7B-Instruct). It supports:
 - Text generation with image and video inputs
+- Multi-model support with hot-swapping
+- Conversation context for multi-turn dialogues
 - Automatic VRAM management
 - Health monitoring
 - Async request processing
@@ -76,7 +78,62 @@ Response:
 }
 ```
 
-### 3. Generate Response (Main Endpoint)
+### 3. Available Models
+
+**GET** `/available_models`
+
+Get list of available models that can be loaded.
+
+```bash
+curl http://localhost:8000/available_models
+```
+
+Response:
+```json
+{
+  "models": {
+    "Qwen/Qwen2.5-VL-7B-Instruct": {
+      "name": "Qwen2.5-VL-7B-Instruct",
+      "size": "7B",
+      "vram_gb": 15.5,
+      "description": "High quality, high VRAM usage"
+    },
+    "Qwen/Qwen2.5-VL-3B-Instruct": {
+      "name": "Qwen2.5-VL-3B-Instruct",
+      "size": "3B",
+      "vram_gb": 6.5,
+      "description": "Good quality, lower VRAM usage"
+    }
+  },
+  "current_model": "Qwen/Qwen2.5-VL-3B-Instruct"
+}
+```
+
+### 4. Reload Model
+
+**POST** `/reload_model`
+
+Switch to a different model.
+
+```bash
+curl -X POST http://localhost:8000/reload_model \
+  -H "Content-Type: application/json" \
+  -d '{"model_name": "Qwen/Qwen2.5-VL-7B-Instruct"}'
+```
+
+Response:
+```json
+{
+  "message": "Model reloaded successfully",
+  "model": "Qwen/Qwen2.5-VL-7B-Instruct",
+  "vram_status": {
+    "allocated_gb": 15.2,
+    "usage_percentage": 63.3
+  }
+}
+```
+
+### 5. Generate Response (Main Endpoint)
 
 **POST** `/api/v1/generate`
 
@@ -185,36 +242,59 @@ response = requests.post(url, json=data)
 print(response.json())
 ```
 
-### Example 3: Multi-turn Conversation
+### Example 3: Multi-turn Conversation with Context Memory
 
 ```python
+# The API maintains context across messages in the same request
 data = {
     "messages": [
         {
             "role": "user",
-            "content": "Hello, can you help me analyze some images?"
+            "content": "My name is Alice and I'm working on a data visualization project."
         },
         {
             "role": "assistant",
-            "content": "Of course! I'd be happy to help you analyze images. Please share the images you'd like me to look at."
+            "content": "Hello Alice! It's great to meet you. I'd be happy to help with your data visualization project. What kind of visualizations are you working on?"
         },
         {
             "role": "user",
-            "content": [
-                {
-                    "type": "image",
-                    "image": "https://example.com/chart.png"
-                },
-                {
-                    "type": "text",
-                    "text": "What kind of chart is this and what does it show?"
-                }
-            ]
+            "content": "What's my name and what am I working on?"
         }
     ]
 }
 
 response = requests.post(url, json=data)
+# The model will remember: "Your name is Alice and you're working on a data visualization project."
+
+# Example with images in conversation
+data = {
+    "messages": [
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "image",
+                    "image": "https://example.com/chart1.png"
+                },
+                {
+                    "type": "text",
+                    "text": "This is my first chart attempt."
+                }
+            ]
+        },
+        {
+            "role": "assistant",
+            "content": "I can see your bar chart showing sales data across different regions. The visualization uses blue bars and has clear axis labels. What specific aspects would you like to improve?"
+        },
+        {
+            "role": "user",
+            "content": "Can you remind me what type of chart I showed you and what it was displaying?"
+        }
+    ]
+}
+
+response = requests.post(url, json=data)
+# The model remembers the previous image and discussion
 ```
 
 ### Example 4: Using cURL
@@ -414,6 +494,31 @@ For detailed logging, modify the logging level in `vlm_server.py`:
 ```python
 logging.basicConfig(level=logging.DEBUG)
 ```
+
+## Web Interfaces
+
+The VLM server includes two web interfaces:
+
+### Chat Interface (`/chat.html`)
+- **Purpose**: Interactive conversational AI with full context memory
+- **Features**:
+  - WhatsApp-style chat UI
+  - Maintains conversation history throughout the session
+  - Drag & drop image support
+  - Real-time VRAM monitoring
+  - Export conversation as JSON
+  - Visual context indicators showing message count
+
+### Document Processing Interface (`/index.html`)
+- **Purpose**: Specialized tools for document analysis
+- **Features**:
+  - Bank transaction extraction
+  - Document summarization
+  - Image analysis and OCR
+  - Custom queries
+  - Model switching (3B/7B)
+
+Both interfaces connect to the same API endpoints and support seamless navigation between them.
 
 ## Client Libraries
 
