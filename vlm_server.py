@@ -21,6 +21,7 @@ from qwen_vl_utils import process_vision_info
 from PIL import Image
 import requests
 import uvicorn
+from bank_parser_v3 import BankStatementParser, parse_bank_statement_to_csv
 
 # Configure logging
 logging.basicConfig(
@@ -670,6 +671,60 @@ async def reload_model(request: ReloadModelRequest):
         }
     except Exception as e:
         logger.error(f"Failed to reload model: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+class BankExportRequest(BaseModel):
+    messages: List[Message]
+    export_format: str = Field(default="csv", description="Export format: csv or json")
+
+@app.post("/api/v1/bank_export")
+async def export_bank_statement(request: BankExportRequest):
+    """Process bank statement and export as CSV or JSON"""
+    
+    try:
+        # Check if we already have an assistant response with bank data
+        ai_response_text = None
+        
+        # Look for the most recent assistant message
+        for msg in reversed(request.messages):
+            if msg.role == "assistant" and msg.content:
+                # Check if it contains bank statement data
+                if any(keyword in msg.content.lower() for keyword in ['date', 'description', 'balance', 'transaction', 'debit', 'credit', 'withdrawal', 'deposit']):
+                    ai_response_text = msg.content
+                    break
+        
+        # If no assistant response, generate one
+        if not ai_response_text:
+            if vlm_server.model is None:
+                raise HTTPException(status_code=503, detail="Model not loaded")
+            generate_request = GenerateRequest(messages=request.messages)
+            ai_response = await vlm_server.generate(generate_request)
+            ai_response_text = ai_response.response
+        
+        # Parse the response into structured format
+        bank_statement, csv_content = parse_bank_statement_to_csv(ai_response_text)
+        
+        if request.export_format == "csv":
+            return {
+                "format": "csv",
+                "content": csv_content,
+                "filename": f"bank_statement_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                "transaction_count": len(bank_statement.transactions),
+                "total_debits": bank_statement.total_debits,
+                "total_credits": bank_statement.total_credits
+            }
+        else:  # json format
+            return {
+                "format": "json",
+                "content": bank_statement.to_json_pretty(),
+                "filename": f"bank_statement_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                "transaction_count": len(bank_statement.transactions),
+                "total_debits": bank_statement.total_debits,
+                "total_credits": bank_statement.total_credits
+            }
+            
+    except Exception as e:
+        logger.error(f"Failed to export bank statement: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Error handlers

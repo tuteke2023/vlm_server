@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# Logs
+*.log
+logs/
+
+# Test outputs
+test_output_*.csv
+test_parser_output_*.csv
+bank_statement_*.csv
+bank_statement_*.json
+
+# Test images
+simple_test.png
+test_document.png
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Model cache
+models/
+.cache/
+
+# Temporary files
+*.tmp
+*.temp

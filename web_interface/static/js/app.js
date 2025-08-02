@@ -458,7 +458,8 @@ class VLMApp {
                 const result = await this.processFile(fileData.file);
                 results.push({
                     fileName: fileName,
-                    result: result
+                    result: result,
+                    file: fileData.file  // Store file for CSV export
                 });
             }
             
@@ -642,6 +643,9 @@ class VLMApp {
         let totalTokens = 0;
         let totalTime = 0;
         
+        // Store results for potential bank export
+        this.lastResults = results;
+        
         results.forEach((result, index) => {
             combinedResults += `=== ${result.fileName} ===\n\n`;
             combinedResults += result.result.response;
@@ -656,6 +660,14 @@ class VLMApp {
         // Update processing info
         document.getElementById('processingTime').textContent = `${totalTime.toFixed(2)}s`;
         document.getElementById('tokensUsed').textContent = totalTokens.toString();
+        
+        // Show CSV export button if this is a bank transaction
+        const exportCsvBtn = document.getElementById('exportCsvBtn');
+        if (this.currentTool === 'bank-transactions' && exportCsvBtn) {
+            exportCsvBtn.style.display = 'inline-flex';
+        } else if (exportCsvBtn) {
+            exportCsvBtn.style.display = 'none';
+        }
         
         // Scroll to results
         resultsSection.scrollIntoView({ behavior: 'smooth' });
@@ -750,6 +762,77 @@ class VLMApp {
         URL.revokeObjectURL(url);
         
         this.showToast('Results downloaded successfully', 'success');
+    }
+    
+    async exportBankStatementCsv() {
+        if (!this.lastResults || this.lastResults.length === 0) {
+            this.showToast('No results to export', 'error');
+            return;
+        }
+        
+        try {
+            this.showToast('Generating CSV export...', 'info');
+            
+            // Use the same prompt and content that was used for processing
+            const fileInfo = this.lastResults[0];
+            const prompt = this.generateBankTransactionPrompt();
+            
+            let content;
+            if (fileInfo.file && fileInfo.file.type.startsWith('image/')) {
+                // For images, convert to base64 again
+                const base64 = await this.fileToBase64(fileInfo.file);
+                content = [
+                    {
+                        type: "image",
+                        image: base64
+                    },
+                    {
+                        type: "text",
+                        text: prompt
+                    }
+                ];
+            } else {
+                // For text files, just use the response text
+                content = prompt + "\n\nBank Statement:\n" + fileInfo.result.response;
+            }
+            
+            const messages = [{
+                role: 'user',
+                content: content
+            }];
+            
+            const response = await fetch(`${this.serverUrl}/api/v1/bank_export`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    messages: messages,
+                    export_format: 'csv'
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to export bank statement');
+            }
+            
+            const data = await response.json();
+            
+            // Download the CSV
+            const blob = new Blob([data.content], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = data.filename;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            this.showToast(`Exported ${data.transaction_count} transactions to CSV`, 'success');
+            
+        } catch (error) {
+            console.error('Export error:', error);
+            this.showToast('Failed to export CSV', 'error');
+        }
     }
     
     exportResults() {

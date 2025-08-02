@@ -25,6 +25,7 @@ A comprehensive Vision Language Model (VLM) server with dual web interfaces for 
 ### **🔧 Document Processing Interface** (`/index.html`)
 - 🌐 **Modern UI** - Responsive design with drag & drop
 - 🏦 **Bank Transaction Extraction** - Parse statements and receipts
+- 📊 **CSV Export** - Export bank transactions to CSV/JSON with LangChain
 - 📄 **Document Summarization** - AI-powered summaries and insights  
 - 🖼️ **Image Analysis** - Object detection, OCR, and description
 - 📝 **Text Extraction** - Advanced OCR with formatting preservation
@@ -36,17 +37,20 @@ A comprehensive Vision Language Model (VLM) server with dual web interfaces for 
 ```
 vlm_server/
 ├── vlm_server.py                      # Main FastAPI server with multi-model support
-├── requirements.txt                   # Dependencies
+├── bank_parser_v3.py                  # LangChain bank statement parser
+├── requirements.txt                   # Dependencies with LangChain
 ├── client_example.py                  # Python client example
 ├── test_vlm_server.py                 # Comprehensive test suite
 ├── test_chat_interface.py             # Chat interface API tests  
 ├── test_conversation_context.py       # Conversation memory tests
+├── test_parser_v3.py                  # Bank parser tests
 ├── API_DOCUMENTATION.md               # Complete API reference
+├── CLAUDE.md                          # Development notes for AI assistants
 ├── web_interface/                     # Dual Web UI
 │   ├── index.html                    # Document processing interface
 │   ├── chat.html                     # Conversational AI interface
 │   ├── static/css/style.css          # Shared modern styling
-│   ├── static/js/app.js              # Document processing logic
+│   ├── static/js/app.js              # Document processing logic with CSV export
 │   ├── static/js/chat.js             # Chat interface with context memory
 │   ├── server.py                     # Development web server
 │   └── README.md                     # Web interface docs
@@ -114,6 +118,8 @@ python3 -m http.server 8080
 # Upload bank statement PDF or image
 # Extract: dates, amounts, descriptions, merchants
 # Output: Structured transaction table with totals
+# Export: Download as CSV or JSON with automatic categorization
+# Features: LangChain-powered parsing with debit/credit separation
 ```
 
 ### 📊 **Document Analysis**
@@ -212,6 +218,13 @@ response = requests.post('http://localhost:8000/api/v1/generate', json={
     }],
     "max_new_tokens": 1000
 })
+
+# Export to CSV
+export_response = requests.post('http://localhost:8000/api/v1/bank_export', json={
+    "messages": messages,  # Include conversation with AI response
+    "export_format": "csv"  # or "json"
+})
+# Returns CSV with columns: Date, Description, Category, Debit, Credit, Balance
 ```
 
 ## 🛠️ Development
