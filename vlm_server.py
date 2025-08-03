@@ -189,7 +189,7 @@ class VLMServer:
         return process.memory_info().rss / 1024**3
         
     def get_vram_status(self) -> VRAMStatus:
-        """Get current VRAM usage statistics"""
+        """Get current VRAM usage statistics from nvidia-smi for accuracy"""
         if not torch.cuda.is_available():
             return VRAMStatus(
                 allocated_gb=0,
@@ -198,7 +198,41 @@ class VLMServer:
                 total_gb=0,
                 usage_percentage=0
             )
+        
+        try:
+            # Try nvidia-smi first for accurate total GPU usage
+            import subprocess
+            result = subprocess.run(
+                ['nvidia-smi', '--query-gpu=memory.used,memory.total,memory.free', '--format=csv,noheader,nounits'],
+                capture_output=True,
+                text=True
+            )
             
+            if result.returncode == 0:
+                output = result.stdout.strip()
+                used_mb, total_mb, free_mb = map(float, output.split(','))
+                
+                # Convert MB to GB
+                used_gb = used_mb / 1024
+                total_gb = total_mb / 1024
+                free_gb = free_mb / 1024
+                
+                # Also get PyTorch's reserved memory
+                reserved = torch.cuda.memory_reserved() / 1024**3
+                
+                usage_percentage = (used_gb / total_gb) * 100
+                
+                return VRAMStatus(
+                    allocated_gb=round(used_gb, 2),
+                    reserved_gb=round(reserved, 2),
+                    free_gb=round(free_gb, 2),
+                    total_gb=round(total_gb, 2),
+                    usage_percentage=round(usage_percentage, 2)
+                )
+        except Exception:
+            pass  # Fall back to PyTorch method
+        
+        # Fallback to PyTorch method if nvidia-smi fails
         allocated = torch.cuda.memory_allocated() / 1024**3
         reserved = torch.cuda.memory_reserved() / 1024**3
         total = torch.cuda.get_device_properties(0).total_memory / 1024**3
@@ -356,36 +390,253 @@ class VLMServer:
         return model
             
     def process_image(self, image_data: str) -> Image.Image:
-        """Process image from URL, base64, or file path"""
+        """Process image from URL, base64, or file path - with multi-page PDF support"""
         try:
+            import fitz  # PyMuPDF
+            
+            def convert_pdf_to_image(pdf_bytes: bytes) -> Image.Image:
+                """Convert PDF to image using adaptive strategy for multi-page documents"""
+                pdf_document = fitz.open(stream=pdf_bytes, filetype="pdf")
+                num_pages = len(pdf_document)
+                
+                # Check if this is a bank statement by looking for keywords
+                is_bank_statement = False
+                for page_num in range(min(2, num_pages)):
+                    text = pdf_document[page_num].get_text().lower()
+                    if any(keyword in text for keyword in ['statement', 'transaction', 'balance', 'debit', 'credit']):
+                        is_bank_statement = True
+                        break
+                
+                if num_pages == 1:
+                    # Single page - simple conversion
+                    page = pdf_document[0]
+                    mat = fitz.Matrix(2, 2)  # 2x scaling
+                    pix = page.get_pixmap(matrix=mat)
+                    img_data = pix.tobytes("png")
+                    pdf_document.close()
+                    return Image.open(io.BytesIO(img_data))
+                
+                elif is_bank_statement:
+                    # Special handling for bank statements
+                    # Skip cover pages and only include transaction pages
+                    transaction_pages = []
+                    
+                    for page_num in range(num_pages):
+                        page = pdf_document[page_num]
+                        text = page.get_text().lower()
+                        
+                        # Check if this page has actual transactions
+                        has_transactions = any([
+                            "withdrawals" in text and "deposits" in text,
+                            "debit" in text or "credit" in text,
+                            any(month in text for month in ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 
+                                                           'jul', 'aug', 'sep', 'oct', 'nov', 'dec']) and '$' in text
+                        ])
+                        
+                        # Skip cover pages
+                        is_cover = page_num == 0 and "transaction details" not in text and not has_transactions
+                        
+                        # Skip blank pages
+                        is_blank = len(text.strip()) < 100
+                        
+                        if has_transactions and not is_cover and not is_blank:
+                            transaction_pages.append(page_num)
+                    
+                    if not transaction_pages:
+                        # Fallback to all non-blank pages
+                        transaction_pages = [i for i in range(num_pages) if len(pdf_document[i].get_text().strip()) > 100]
+                    
+                    # Convert only transaction pages
+                    images = []
+                    for page_num in transaction_pages:
+                        page = pdf_document[page_num]
+                        # Use 1.5x scaling for bank statements (balance between quality and size)
+                        mat = fitz.Matrix(1.5, 1.5)
+                        pix = page.get_pixmap(matrix=mat)
+                        img_data = pix.tobytes("png")
+                        images.append(Image.open(io.BytesIO(img_data)))
+                    
+                    pdf_document.close()
+                    
+                    if len(images) == 1:
+                        return images[0]
+                    
+                    # Calculate dimensions
+                    total_height = sum(img.height for img in images)
+                    max_width = max(img.width for img in images)
+                    
+                    # Add padding and page markers
+                    page_padding = 30
+                    total_height += page_padding * (len(images) - 1) + 60  # Extra for headers
+                    
+                    # Create combined image
+                    concatenated = Image.new('RGB', (max_width, total_height + 60), 'white')
+                    
+                    from PIL import ImageDraw
+                    draw = ImageDraw.Draw(concatenated)
+                    
+                    # Add header
+                    draw.text((10, 10), f"BANK STATEMENT - {len(images)} PAGES - ALL TRANSACTIONS REQUIRED", fill='red')
+                    draw.line([(0, 30), (max_width, 30)], fill='red', width=2)
+                    
+                    # Paste images
+                    y_offset = 40
+                    for idx, img in enumerate(images):
+                        # Add page number
+                        draw.text((10, y_offset), f"PAGE {transaction_pages[idx] + 1}", fill='blue')
+                        y_offset += 20
+                        
+                        x_offset = (max_width - img.width) // 2
+                        concatenated.paste(img, (x_offset, y_offset))
+                        y_offset += img.height
+                        
+                        if idx < len(images) - 1:
+                            y_offset += page_padding
+                            draw.line([(50, y_offset - 15), (max_width - 50, y_offset - 15)], fill='red', width=2)
+                    
+                    # Add footer
+                    draw.text((10, y_offset + 10), "END OF STATEMENT - ENSURE ALL TRANSACTIONS CAPTURED", fill='red')
+                    
+                    return concatenated
+                
+                elif num_pages <= 4:
+                    # For non-bank statement PDFs, use grid layout
+                    images = []
+                    for page_num in range(num_pages):
+                        page = pdf_document[page_num]
+                        mat = fitz.Matrix(1.5, 1.5)
+                        pix = page.get_pixmap(matrix=mat)
+                        img_data = pix.tobytes("png")
+                        images.append(Image.open(io.BytesIO(img_data)))
+                    
+                    pdf_document.close()
+                    
+                    # Create 2-column grid
+                    grid_cols = 2
+                    grid_rows = (num_pages + 1) // 2
+                    
+                    max_width = max(img.width for img in images)
+                    max_height = max(img.height for img in images)
+                    padding = 20
+                    
+                    grid_width = grid_cols * max_width + (grid_cols - 1) * padding
+                    grid_height = grid_rows * max_height + (grid_rows - 1) * padding
+                    
+                    grid_image = Image.new('RGB', (grid_width, grid_height), 'white')
+                    
+                    for idx, img in enumerate(images):
+                        row = idx // grid_cols
+                        col = idx % grid_cols
+                        x = col * (max_width + padding) + (max_width - img.width) // 2
+                        y = row * (max_height + padding) + (max_height - img.height) // 2
+                        grid_image.paste(img, (x, y))
+                    
+                    return grid_image
+                
+                else:
+                    # Many pages - extract relevant pages containing transactions
+                    transaction_keywords = ["transaction", "balance", "date", "debit", "credit", 
+                                          "withdrawal", "deposit", "payment", "transfer"]
+                    relevant_images = []
+                    
+                    for page_num in range(num_pages):
+                        page = pdf_document[page_num]
+                        # Check if page contains transaction data
+                        text = page.get_text().lower()
+                        
+                        if any(keyword in text for keyword in transaction_keywords):
+                            mat = fitz.Matrix(2, 2)
+                            pix = page.get_pixmap(matrix=mat)
+                            img_data = pix.tobytes("png")
+                            relevant_images.append(Image.open(io.BytesIO(img_data)))
+                    
+                    pdf_document.close()
+                    
+                    if not relevant_images:
+                        # Fallback to first page if no transaction pages found
+                        pdf_document = fitz.open(stream=pdf_bytes, filetype="pdf")
+                        page = pdf_document[0]
+                        mat = fitz.Matrix(2, 2)
+                        pix = page.get_pixmap(matrix=mat)
+                        img_data = pix.tobytes("png")
+                        pdf_document.close()
+                        return Image.open(io.BytesIO(img_data))
+                    
+                    # Concatenate relevant pages vertically
+                    total_height = sum(img.height for img in relevant_images)
+                    max_width = max(img.width for img in relevant_images)
+                    
+                    # Limit height to prevent memory issues
+                    if total_height > 8000:
+                        # Take only first few pages that fit
+                        limited_images = []
+                        current_height = 0
+                        for img in relevant_images:
+                            if current_height + img.height <= 8000:
+                                limited_images.append(img)
+                                current_height += img.height
+                            else:
+                                break
+                        relevant_images = limited_images
+                        total_height = current_height
+                    
+                    concatenated = Image.new('RGB', (max_width, total_height), 'white')
+                    
+                    y_offset = 0
+                    for img in relevant_images:
+                        x_offset = (max_width - img.width) // 2
+                        concatenated.paste(img, (x_offset, y_offset))
+                        y_offset += img.height
+                    
+                    return concatenated
+            
             # Check if it's a URL
             if image_data.startswith(('http://', 'https://')):
                 response = requests.get(image_data, timeout=30)
                 response.raise_for_status()
-                return Image.open(io.BytesIO(response.content))
+                content = response.content
                 
-            # Check if it's base64
-            elif image_data.startswith('data:image'):
-                # Extract base64 data
-                base64_data = image_data.split(',')[1]
-                image_bytes = base64.b64decode(base64_data)
-                return Image.open(io.BytesIO(image_bytes))
+                if content.startswith(b'%PDF'):
+                    return convert_pdf_to_image(content)
+                else:
+                    return Image.open(io.BytesIO(content))
+            
+            # Check if it's base64 with data URI
+            elif image_data.startswith('data:'):
+                header, base64_data = image_data.split(',', 1)
+                file_bytes = base64.b64decode(base64_data)
                 
+                if 'pdf' in header.lower() or file_bytes.startswith(b'%PDF'):
+                    return convert_pdf_to_image(file_bytes)
+                else:
+                    return Image.open(io.BytesIO(file_bytes))
+            
             # Try as base64 without prefix
             elif len(image_data) > 100:  # Likely base64
                 try:
-                    image_bytes = base64.b64decode(image_data)
-                    return Image.open(io.BytesIO(image_bytes))
+                    file_bytes = base64.b64decode(image_data)
+                    if file_bytes.startswith(b'%PDF'):
+                        return convert_pdf_to_image(file_bytes)
+                    else:
+                        return Image.open(io.BytesIO(file_bytes))
                 except:
                     pass
                     
             # Try as file path
             path = Path(image_data)
             if path.exists():
-                return Image.open(path)
+                if path.suffix.lower() == '.pdf':
+                    with open(path, 'rb') as f:
+                        return convert_pdf_to_image(f.read())
+                else:
+                    return Image.open(path)
                 
-            raise ValueError(f"Could not process image data: {image_data[:50]}...")
+            raise ValueError(f"Could not process file data: {image_data[:50]}...")
             
+        except ImportError:
+            if 'pdf' in image_data.lower() or (len(image_data) > 4 and image_data.startswith('JVBE')):
+                raise ValueError("PDF support requires PyMuPDF. Install with: pip install PyMuPDF")
+            raise
         except Exception as e:
             logger.error(f"Error processing image: {str(e)}")
             raise
@@ -405,7 +656,13 @@ class VLMServer:
                     if item.type == "text":
                         content_list.append({"type": "text", "text": item.text})
                     elif item.type == "image":
-                        content_list.append({"type": "image", "image": item.image})
+                        # Process image data (base64, URL, or path) to PIL Image
+                        try:
+                            pil_image = self.process_image(item.image)
+                            content_list.append({"type": "image", "image": pil_image})
+                        except Exception as e:
+                            logger.error(f"Failed to process image: {str(e)}")
+                            raise ValueError(f"Failed to process image: {str(e)}")
                     elif item.type == "video":
                         content_list.append({"type": "video", "video": item.video})
                         
@@ -742,17 +999,28 @@ async def extract_bank_statement_json(request: GenerateRequest):
         table_prompt = """
 Extract ALL transactions from this bank statement in a structured table format.
 
+IMPORTANT RULES:
+1. The OPENING BALANCE is NOT a transaction - it's just the starting balance, skip it
+2. Start with the FIRST ACTUAL TRANSACTION (payment, transfer, withdrawal, deposit, fee, etc.)
+3. Include EVERY transaction from ALL pages - check carefully for transactions at page boundaries
+4. Continue until you reach the final transaction or closing balance
+
 Use this format:
 | Date | Description | Ref. | Withdrawals | Deposits | Balance |
 
 Include EVERY transaction shown, including:
-- Previous balance entries
 - All payments and withdrawals  
 - All deposits and credits
-- All fees
+- All transfers
+- All fees and interest
 - Small amounts (don't skip any transactions)
 
-Make sure to capture the complete transaction list.
+DO NOT include:
+- Opening balance
+- Statement headers/footers
+- Account summaries
+
+Make sure to capture the COMPLETE transaction list from ALL pages.
 """
         
         # Modify messages to use table extraction

@@ -1,171 +1,210 @@
 #!/usr/bin/env python3
-"""
-Test the LangChain bank export integration
-"""
+"""Test script for LangChain integration with bank transaction classification"""
 
-import requests
-import base64
 import json
-import time
-import asyncio
-import aiohttp
-from datetime import datetime
+import sys
+from pathlib import Path
 
-SERVER_URL = "http://localhost:8000"
+# Add the project directory to path
+sys.path.insert(0, str(Path(__file__).parent))
 
-def test_bank_export_endpoint():
-    """Test the new bank export endpoint"""
+def test_langchain_classifier():
+    """Test the LangChain classifier (when LangChain is installed)"""
     
-    # Sample bank statement text
-    bank_statement = """
-    BANK STATEMENT
-    Account: ****1234
-    Period: January 2024
+    print("Testing LangChain Transaction Classifier")
+    print("=" * 80)
     
-    Date        Description                     Amount      Balance
-    01/05/2024  Opening Balance                            $5,000.00
-    01/07/2024  Grocery Store Purchase         -$125.50    $4,874.50
-    01/10/2024  Direct Deposit Salary          +$3,500.00  $8,374.50
-    01/15/2024  Electric Bill Payment          -$185.00    $8,189.50
-    01/18/2024  Restaurant - Olive Garden      -$67.25     $8,122.25
-    01/20/2024  ATM Withdrawal                 -$200.00    $7,922.25
-    01/25/2024  Amazon Online Purchase         -$342.75    $7,579.50
-    01/28/2024  Shell Gas Station              -$45.00     $7,534.50
-    01/31/2024  Monthly Service Fee            -$15.00     $7,519.50
+    # Check if LangChain is available
+    try:
+        import langchain
+        from langchain.prompts import FewShotPromptTemplate, PromptTemplate
+        from langchain.output_parsers import PydanticOutputParser
+        print(f"✓ LangChain is installed (version: {langchain.__version__})")
+    except ImportError:
+        print("✗ LangChain is not installed")
+        print("\nTo use LangChain features, please install:")
+        print("  pip install langchain langchain-community pydantic")
+        print("\nFor now, demonstrating the classifier without LangChain dependencies...")
     
-    Ending Balance: $7,519.50
+    # Test with our custom classifier (works without LangChain)
+    from transaction_classifier_langchain import LangChainTransactionClassifier
+    
+    # Load test transactions
+    test_transactions = [
+        {
+            "date": "Oct 14",
+            "description": "Payroll Deposit - HOTEL",
+            "reference": "",
+            "debit": 0,
+            "credit": 694.81,
+            "balance": 695.36
+        },
+        {
+            "date": "Oct 14", 
+            "description": "Officeworks - Office Supplies",
+            "reference": "",
+            "debit": 89.50,
+            "credit": 0,
+            "balance": 605.86
+        },
+        {
+            "date": "Oct 17",
+            "description": "Client Payment - Consulting",
+            "reference": "INV-2024-045", 
+            "debit": 0,
+            "credit": 2200.00,
+            "balance": 2805.86
+        },
+        {
+            "date": "Oct 22",
+            "description": "Coles Supermarket",
+            "reference": "",
+            "debit": 95.50,
+            "credit": 0,
+            "balance": 2710.36
+        },
+        {
+            "date": "Oct 23",
+            "description": "Telstra Mobile Service",
+            "reference": "",
+            "debit": 89.00,
+            "credit": 0,
+            "balance": 2621.36
+        }
+    ]
+    
+    # Initialize classifier
+    classifier = LangChainTransactionClassifier()
+    
+    # Generate classification prompt
+    prompt = classifier.create_classification_prompt(test_transactions)
+    
+    print("\n1. Generated Prompt Preview:")
+    print("-" * 40)
+    print(prompt[:500] + "...")
+    
+    # Simulate VLM response (with intentional errors to test corrections)
+    mock_vlm_response = """
+    Here are the classifications:
+    
+    [
+        {
+            "gst_applicable": true,
+            "gst_amount": 63.16,
+            "gst_category": "GST on sales",
+            "category": "Income/Revenue",
+            "subcategory": "Wages",
+            "business_percentage": 100,
+            "tax_deductible": false,
+            "notes": "Payroll income includes GST"
+        },
+        {
+            "gst_applicable": true,
+            "gst_amount": 8.00,
+            "gst_category": "GST on purchases",
+            "category": "Office Expenses",
+            "subcategory": "Office Supplies",
+            "business_percentage": 100,
+            "tax_deductible": true,
+            "notes": "Office supplies from Officeworks"
+        },
+        {
+            "gst_applicable": true,
+            "gst_amount": 200.00,
+            "gst_category": "GST on sales",
+            "category": "Income/Revenue",
+            "subcategory": "Professional Services",
+            "business_percentage": 100,
+            "tax_deductible": false,
+            "notes": "Consulting income with GST"
+        },
+        {
+            "gst_applicable": true,
+            "gst_amount": 8.68,
+            "gst_category": "GST on purchases",
+            "category": "Groceries",
+            "subcategory": "Food",
+            "business_percentage": 50,
+            "tax_deductible": true,
+            "notes": "Supermarket purchase"
+        },
+        {
+            "gst_applicable": true,
+            "gst_amount": 8.09,
+            "gst_category": "GST on purchases",
+            "category": "Utilities",
+            "subcategory": "Telecommunications",
+            "business_percentage": 50,
+            "tax_deductible": true,
+            "notes": "Mobile phone service"
+        }
+    ]
     """
     
-    # Create request
-    messages = [{
-        "role": "user",
-        "content": f"""Analyze this bank statement and extract transaction data.
+    # Classify with corrections
+    results = classifier.classify_transactions(test_transactions, mock_vlm_response)
+    
+    print("\n\n2. Classification Results (with corrections applied):")
+    print("-" * 40)
+    
+    for i, result in enumerate(results):
+        print(f"\nTransaction {i+1}: {result['description']}")
+        print(f"  Amount: ${result.get('original_amount', 0):.2f} ({result.get('transaction_type', 'unknown')})")
+        print(f"  GST Applicable: {result.get('gst_applicable', False)}")
+        print(f"  GST Amount: ${result.get('gst_amount', 0):.2f}")
+        print(f"  GST Category: {result.get('gst_category', 'N/A')}")
+        print(f"  Category: {result.get('category', 'N/A')} - {result.get('subcategory', 'N/A')}")
+        print(f"  Business %: {result.get('business_percentage', 0)}%")
+        print(f"  Tax Deductible: {result.get('tax_deductible', False)}")
+        print(f"  Notes: {result.get('notes', 'N/A')}")
         
-        Bank Statement:
-        {bank_statement}
-        """
-    }]
+        # Highlight corrections
+        if 'Payroll' in result['description'] and not result.get('gst_applicable'):
+            print("  ✓ CORRECTED: Payroll is GST-free")
+        if 'Coles' in result['description'] and not result.get('gst_applicable'):
+            print("  ✓ CORRECTED: Groceries are GST-free and personal")
+        if 'Officeworks' in result['description'] and abs(result.get('gst_amount', 0) - 8.14) < 0.01:
+            print("  ✓ CORRECTED: GST amount recalculated")
     
-    print("Testing Bank Export Endpoint")
-    print("=" * 60)
+    # Generate validation summary
+    validation = classifier.create_validation_chain(results)
     
-    # Test CSV export
-    print("\n1. Testing CSV Export...")
-    try:
-        response = requests.post(
-            f"{SERVER_URL}/api/v1/bank_export",
-            json={
-                "messages": messages,
-                "export_format": "csv"
-            }
-        )
-        
-        if response.status_code == 200:
-            data = response.json()
-            print(f"✓ CSV export successful!")
-            print(f"  - Transactions: {data['transaction_count']}")
-            print(f"  - Total Debits: ${data['total_debits']:.2f}")
-            print(f"  - Total Credits: ${data['total_credits']:.2f}")
-            print(f"  - Filename: {data['filename']}")
-            
-            # Save CSV
-            with open(data['filename'], 'w') as f:
-                f.write(data['content'])
-            print(f"  - Saved to: {data['filename']}")
-            
-            # Display first few lines
-            print("\nCSV Preview:")
-            print("-" * 40)
-            lines = data['content'].split('\n')[:10]
-            for line in lines:
-                print(line)
-            
-        else:
-            print(f"✗ Failed with status {response.status_code}")
-            print(response.json())
-            
-    except Exception as e:
-        print(f"✗ Error: {e}")
+    print("\n\n3. Validation Summary:")
+    print("-" * 40)
+    print(f"Total Transactions: {validation['total_transactions']}")
+    print(f"Total GST: ${validation['total_gst']:.2f}")
+    print(f"Business Expenses: ${validation['business_expenses']:.2f}")
+    print(f"Tax Deductible Total: ${validation['tax_deductible_total']:.2f}")
     
-    # Test JSON export
-    print("\n\n2. Testing JSON Export...")
-    try:
-        response = requests.post(
-            f"{SERVER_URL}/api/v1/bank_export",
-            json={
-                "messages": messages,
-                "export_format": "json"
-            }
-        )
-        
-        if response.status_code == 200:
-            data = response.json()
-            print(f"✓ JSON export successful!")
-            print(f"  - Transactions: {data['transaction_count']}")
-            print(f"  - Filename: {data['filename']}")
-            
-            # Save JSON
-            with open(data['filename'], 'w') as f:
-                f.write(data['content'])
-            print(f"  - Saved to: {data['filename']}")
-            
-            # Display structure
-            print("\nJSON Structure Preview:")
-            print("-" * 40)
-            json_data = json.loads(data['content'])
-            print(f"Account Number: {json_data.get('account_number', 'N/A')}")
-            print(f"Statement Period: {json_data.get('statement_period', 'N/A')}")
-            print(f"Number of Transactions: {len(json_data.get('transactions', []))}")
-            
-            if json_data.get('transactions'):
-                print("\nFirst Transaction:")
-                print(json.dumps(json_data['transactions'][0], indent=2))
-                
-        else:
-            print(f"✗ Failed with status {response.status_code}")
-            print(response.json())
-            
-    except Exception as e:
-        print(f"✗ Error: {e}")
+    print("\nBy Category:")
+    for cat, data in validation['categories'].items():
+        print(f"  {cat}: {data['count']} transactions, ${data['total']:.2f} total")
     
-    print("\n" + "=" * 60)
-    print("Test complete! Check the generated files.")
-
-def test_web_interface():
-    """Instructions for testing the web interface"""
-    print("\n\nWeb Interface Testing Instructions")
-    print("=" * 60)
-    print("1. Open http://localhost:8080 in your browser")
-    print("2. Select 'Bank Transactions' from the left menu")
-    print("3. Upload a bank statement image or PDF")
-    print("4. Check all the extraction options")
-    print("5. Click 'Start Processing'")
-    print("6. Once processing is complete, you should see:")
-    print("   - The extracted text in the results area")
-    print("   - An 'Export CSV' button in the results header")
-    print("7. Click 'Export CSV' to download the structured data")
-    print("\nThe CSV will have proper columns for:")
-    print("- Date")
-    print("- Description") 
-    print("- Category (auto-categorized)")
-    print("- Debit")
-    print("- Credit")
-    print("- Balance")
-    print("\nVerify that:")
-    print("- Amounts are correctly separated into debit/credit columns")
-    print("- Categories are automatically assigned")
-    print("- Totals are calculated correctly")
+    # Save results
+    output_file = 'langchain_classification_results.json'
+    with open(output_file, 'w') as f:
+        json.dump({
+            'transactions': results,
+            'validation_summary': validation,
+            'corrections_applied': [
+                "Payroll marked as GST-free",
+                "Groceries marked as GST-free and personal", 
+                "GST amounts recalculated using ÷11 formula",
+                "Telstra mobile categorized with 50% business use"
+            ]
+        }, f, indent=2)
+    
+    print(f"\n\nResults saved to: {output_file}")
+    
+    # Show LangChain integration benefits
+    print("\n\n4. LangChain Integration Benefits:")
+    print("-" * 40)
+    print("✓ Structured output with Pydantic models ensures consistent format")
+    print("✓ Few-shot learning from corrections database examples")
+    print("✓ Better prompt engineering with FewShotPromptTemplate")
+    print("✓ Output parser validation catches formatting errors")
+    print("✓ Chain-of-thought reasoning for complex classifications")
+    print("✓ Easy integration with other LLMs beyond the VLM")
 
 if __name__ == "__main__":
-    # Check if server is running
-    try:
-        response = requests.get(f"{SERVER_URL}/health")
-        if response.status_code == 200:
-            print("✓ VLM Server is running")
-            test_bank_export_endpoint()
-            test_web_interface()
-        else:
-            print("✗ VLM Server is not responding properly")
-    except:
-        print("✗ VLM Server is not running. Start it with:")
-        print("  python vlm_server.py")
+    test_langchain_classifier()
