@@ -22,7 +22,7 @@ from qwen_vl_utils import process_vision_info
 from PIL import Image
 import requests
 import uvicorn
-from bank_parser_v4 import BankStatementParser, parse_bank_statement_to_csv
+from bank_parser_v3 import BankStatementParser, parse_bank_statement_to_csv
 
 # Configure logging
 logging.basicConfig(

@@ -81,7 +81,12 @@ source ~/pytorch-env/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
+
+# For RTX 5060 Ti and newer GPUs (sm_120+), install PyTorch with CUDA 12.8:
+pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
 ```
+
+**Important**: Always activate the virtual environment before running the server!
 
 ### 3. Start VLM Server
 
@@ -283,15 +288,29 @@ constructor() {
 ## 🚨 Troubleshooting
 
 ### **GPU Issues**
-```bash
-# Check CUDA support
-python -c "import torch; print(torch.cuda.is_available())"
 
-# Check GPU compatibility
-python -c "import torch; print(torch.cuda.get_arch_list())"
+#### RTX 5060 Ti and newer GPUs (sm_120) Compatibility
 
-# Expected: ['sm_75', 'sm_80', 'sm_86', 'sm_90', 'sm_100', 'sm_120']
-```
+If you get `CUDA error: no kernel image is available for execution on the device`:
+
+1. **Ensure you're using the virtual environment:**
+   ```bash
+   source ~/pytorch-env/bin/activate
+   ```
+
+2. **Install PyTorch with CUDA 12.8 support:**
+   ```bash
+   pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+   ```
+
+3. **Verify installation:**
+   ```bash
+   python -c "import torch; print(f'PyTorch: {torch.__version__}')"
+   python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}')"
+   python -c "import torch; print(f'GPU: {torch.cuda.get_device_name(0)}')"
+   ```
+
+**Note**: The RTX 5060 Ti requires PyTorch 2.7.1+ with CUDA 12.8 for full compatibility.
 
 ### **Memory Issues**
 ```bash

@@ -126,6 +126,28 @@ The project uses a virtual environment at `~/pytorch-env/`. Always activate it b
 source ~/pytorch-env/bin/activate
 ```
 
+### GPU Compatibility (RTX 5060 Ti and newer GPUs)
+
+For GPUs with compute capability sm_120 (RTX 5060 Ti) and newer, you need PyTorch with CUDA 12.8 support:
+
+1. **Activate the virtual environment first:**
+   ```bash
+   source ~/pytorch-env/bin/activate
+   ```
+
+2. **Install PyTorch with CUDA 12.8:**
+   ```bash
+   pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+   ```
+
+This resolves the "no kernel image is available for execution on the device" error for newer GPUs.
+
+## Project Reminders
+
+- **IMPORTANT**: Always use the virtual environment (`source ~/pytorch-env/bin/activate`) before starting the server
+- The virtual environment contains PyTorch 2.7.1+cu128 which supports newer GPUs like RTX 5060 Ti
+- Never run the server with system Python - it will fail with CUDA compatibility errors
+
 ## VRAM Management
 
 - 3B model uses ~6.5GB VRAM
