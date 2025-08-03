@@ -7,6 +7,7 @@ import io
 import traceback
 import psutil
 import os
+import json
 from typing import List, Dict, Optional, Union
 from datetime import datetime
 from contextlib import asynccontextmanager
@@ -21,7 +22,7 @@ from qwen_vl_utils import process_vision_info
 from PIL import Image
 import requests
 import uvicorn
-from bank_parser_v3 import BankStatementParser, parse_bank_statement_to_csv
+from bank_parser_v4 import BankStatementParser, parse_bank_statement_to_csv
 
 # Configure logging
 logging.basicConfig(
@@ -570,6 +571,8 @@ async def root():
         "status": "running",
         "endpoints": {
             "generate": "/api/v1/generate",
+            "bank_export": "/api/v1/bank_export",
+            "bank_extract_json": "/api/v1/bank_extract_json",
             "health": "/health",
             "vram_status": "/vram_status",
             "vram_prediction": "/vram_prediction",
@@ -725,6 +728,100 @@ async def export_bank_statement(request: BankExportRequest):
             
     except Exception as e:
         logger.error(f"Failed to export bank statement: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/v1/bank_extract_json")
+async def extract_bank_statement_json(request: GenerateRequest):
+    """Extract bank statement to JSON format using table extraction + conversion"""
+    
+    try:
+        if vlm_server.model is None:
+            raise HTTPException(status_code=503, detail="Model not loaded")
+        
+        # Use table format for extraction (proven to work well)
+        table_prompt = """
+Extract ALL transactions from this bank statement in a structured table format.
+
+Use this format:
+| Date | Description | Ref. | Withdrawals | Deposits | Balance |
+
+Include EVERY transaction shown, including:
+- Previous balance entries
+- All payments and withdrawals  
+- All deposits and credits
+- All fees
+- Small amounts (don't skip any transactions)
+
+Make sure to capture the complete transaction list.
+"""
+        
+        # Modify messages to use table extraction
+        import copy
+        modified_messages = []
+        
+        logger.info(f"Received {len(request.messages)} messages")
+        
+        for i, msg in enumerate(request.messages):
+            logger.info(f"Message {i}: role={msg.role}, content_type={type(msg.content).__name__}")
+            
+            if msg.role == "user" and i == len(request.messages) - 1:  # Last user message
+                if isinstance(msg.content, str):
+                    # Simple string content
+                    new_msg = Message(
+                        role=msg.role,
+                        content=table_prompt + "\n\n" + msg.content
+                    )
+                    modified_messages.append(new_msg)
+                elif isinstance(msg.content, list):
+                    # List of content items
+                    new_content = []
+                    text_modified = False
+                    
+                    for item in msg.content:
+                        if item.type == "text" and not text_modified:
+                            # Replace the user's text completely with our table prompt
+                            new_content.append(ContentItem(
+                                type="text",
+                                text=table_prompt
+                            ))
+                            text_modified = True
+                            logger.info(f"Replaced user text with table prompt")
+                        elif item.type != "text":
+                            new_content.append(item)
+                    
+                    new_msg = Message(role=msg.role, content=new_content)
+                    modified_messages.append(new_msg)
+            else:
+                modified_messages.append(msg)
+        
+        # Generate response
+        ai_response = await vlm_server.generate(GenerateRequest(
+            messages=modified_messages,
+            max_new_tokens=request.max_new_tokens or 2048,
+            temperature=0.1
+        ))
+        
+        # Convert table to JSON using our balance-based parser
+        from bank_table_parser_v3 import parse_bank_table_to_json
+        
+        # Debug logging
+        logger.info(f"VLM response length: {len(ai_response.response)}")
+        logger.info(f"VLM response preview: {ai_response.response[:500]}...")
+        
+        json_data = parse_bank_table_to_json(ai_response.response)
+        
+        logger.info(f"Parsed transaction count: {json_data['transaction_count']}")
+        logger.info(f"Parsed transactions: {json_data['transactions'][:2] if json_data['transactions'] else 'None'}")
+        
+        return {
+            "status": "success",
+            "data": json_data,
+            "transaction_count": json_data["transaction_count"],
+            "processing_time": ai_response.processing_time
+        }
+            
+    except Exception as e:
+        logger.error(f"Failed to extract bank statement as JSON: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Error handlers

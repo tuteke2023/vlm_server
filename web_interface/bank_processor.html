@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bank Statement Processor - VLM Server</title>
+    <link rel="stylesheet" href="static/css/style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Bank Processor Enhanced Styles */
+        .workflow-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .progress-tracker {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 3rem;
+            position: relative;
+        }
+        
+        .progress-tracker::before {
+            content: '';
+            position: absolute;
+            top: 24px;
+            left: 20%;
+            right: 20%;
+            height: 2px;
+            background: #e5e7eb;
+            z-index: 0;
+        }
+        
+        .progress-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            position: relative;
+            z-index: 1;
+            flex: 1;
+            max-width: 200px;
+        }
+        
+        .step-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: #f3f4f6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            color: #6b7280;
+            border: 3px solid #e5e7eb;
+            transition: all 0.3s ease;
+        }
+        
+        .progress-step.completed .step-icon {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .progress-step.active .step-icon {
+            border-color: #667eea;
+            color: #667eea;
+            box-shadow: 0 0 0 8px rgba(102, 126, 234, 0.1);
+        }
+        
+        .step-label {
+            font-weight: 500;
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+        
+        .progress-step.completed .step-label,
+        .progress-step.active .step-label {
+            color: #667eea;
+        }
+        
+        /* Workflow Steps */
+        .workflow-step {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            opacity: 0.5;
+            transition: all 0.3s ease;
+        }
+        
+        .workflow-step.active {
+            opacity: 1;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        
+        .workflow-step h3 {
+            color: #1f2937;
+            font-size: 1.25rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        
+        .workflow-step h3 i {
+            color: #667eea;
+        }
+        
+        /* Action Buttons */
+        .primary-button {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 0.75rem 2rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        
+        .primary-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .primary-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .secondary-button {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            border: 1px solid #667eea;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .secondary-button:hover {
+            background: rgba(102, 126, 234, 0.2);
+            transform: translateY(-1px);
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        
+        /* Enhanced Upload Area */
+        .upload-zone {
+            border: 2px dashed #d1d5db;
+            border-radius: 12px;
+            padding: 3rem 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background: rgba(249, 250, 251, 0.5);
+            margin-bottom: 1.5rem;
+        }
+        
+        .upload-zone:hover {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.05);
+        }
+        
+        .upload-zone.dragover {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+            transform: scale(1.02);
+        }
+        
+        .upload-zone i {
+            font-size: 3rem;
+            color: #667eea;
+            margin-bottom: 1rem;
+            display: block;
+        }
+        
+        .upload-zone p {
+            margin: 0.5rem 0;
+            color: #4b5563;
+        }
+        
+        .file-types {
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+        
+        /* Results Section */
+        .results-container {
+            background: #f9fafb;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+        }
+        
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 1.25rem;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .stat-label {
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1f2937;
+        }
+        
+        .json-preview {
+            background: #1f2937;
+            color: #f3f4f6;
+            padding: 1.5rem;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.875rem;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 1rem;
+        }
+        
+        /* Progress Bar */
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 1rem 0;
+            display: none;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+        
+        /* Export Options */
+        .export-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        
+        .export-option {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 1.5rem;
+            text-align: center;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        
+        .export-option:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+        }
+        
+        .export-option i {
+            font-size: 2rem;
+            color: #667eea;
+            margin-bottom: 0.75rem;
+            display: block;
+        }
+        
+        .export-option h4 {
+            margin: 0 0 0.5rem 0;
+            color: #1f2937;
+            font-size: 1rem;
+        }
+        
+        .export-option p {
+            margin: 0;
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+        
+        /* Transaction Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .modal-header h3 {
+            margin: 0;
+            color: #1f2937;
+        }
+        
+        .close-button {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: #6b7280;
+            cursor: pointer;
+            padding: 0.5rem;
+        }
+        
+        .close-button:hover {
+            color: #1f2937;
+        }
+        
+        .transaction-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .transaction-table th,
+        .transaction-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .transaction-table th {
+            font-weight: 600;
+            color: #374151;
+            background: #f9fafb;
+        }
+        
+        .transaction-table tr:hover {
+            background: #f9fafb;
+        }
+        
+        .income {
+            color: #10b981;
+        }
+        
+        .expense {
+            color: #ef4444;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-brain"></i>
+                    <h1>VLM Server</h1>
+                    <span class="subtitle">Document Intelligence Platform</span>
+                </div>
+                <div class="nav-links">
+                    <a href="index.html" class="nav-link">
+                        <i class="fas fa-tools"></i> Processing Tools
+                    </a>
+                    <a href="bank_processor.html" class="nav-link active">
+                        <i class="fas fa-file-invoice-dollar"></i> Bank Processor
+                    </a>
+                    <a href="chat.html" class="nav-link">
+                        <i class="fas fa-comments"></i> Chat
+                    </a>
+                </div>
+                <div class="server-status">
+                    <div class="status-indicator" id="serverStatus">
+                        <span class="status-dot"></span>
+                        <span class="status-text">Connecting...</span>
+                    </div>
+                    <div class="vram-usage" id="vramUsage">
+                        <i class="fas fa-microchip"></i>
+                        <span>VRAM: --</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="workflow-container">
+            <h2 style="text-align: center; color: #1f2937; margin-bottom: 3rem;">
+                <i class="fas fa-file-invoice-dollar" style="color: #667eea;"></i>
+                Bank Statement Processor
+            </h2>
+            
+            <!-- Progress Tracker -->
+            <div class="progress-tracker">
+                <div class="progress-step active" id="step-upload">
+                    <div class="step-icon">
+                        <i class="fas fa-upload"></i>
+                    </div>
+                    <div class="step-label">Upload</div>
+                </div>
+                <div class="progress-step" id="step-extract">
+                    <div class="step-icon">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <div class="step-label">Extract</div>
+                </div>
+                <div class="progress-step" id="step-process">
+                    <div class="step-icon">
+                        <i class="fas fa-cogs"></i>
+                    </div>
+                    <div class="step-label">Process</div>
+                </div>
+                <div class="progress-step" id="step-export">
+                    <div class="step-icon">
+                        <i class="fas fa-download"></i>
+                    </div>
+                    <div class="step-label">Export</div>
+                </div>
+            </div>
+
+            <!-- Step 1: Upload -->
+            <div class="workflow-step active" id="upload-section">
+                <h3><i class="fas fa-cloud-upload-alt"></i> Upload Bank Statement</h3>
+                
+                <div class="upload-zone" id="dropZone">
+                    <i class="fas fa-file-upload"></i>
+                    <p style="font-size: 1.1rem; font-weight: 500; color: #374151;">
+                        Drop your bank statement here or click to browse
+                    </p>
+                    <p class="file-types">Supports: PDF, PNG, JPG, JPEG</p>
+                    <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg" hidden>
+                </div>
+
+                <div class="extraction-options" style="display:none;" id="extractionOptions">
+                    <h4 style="margin-bottom: 1rem;">Choose extraction method:</h4>
+                    <div style="display: flex; gap: 1rem; justify-content: center;">
+                        <label class="export-option" style="flex: 1; cursor: pointer;">
+                            <input type="radio" name="format" value="json" checked style="display: none;">
+                            <i class="fas fa-code"></i>
+                            <h4>JSON Format</h4>
+                            <p>Best for further processing</p>
+                        </label>
+                        <label class="export-option" style="flex: 1; cursor: pointer;">
+                            <input type="radio" name="format" value="table" style="display: none;">
+                            <i class="fas fa-table"></i>
+                            <h4>Table Format</h4>
+                            <p>Human-readable format</p>
+                        </label>
+                    </div>
+                    
+                    <div class="button-group" style="justify-content: center;">
+                        <button class="primary-button" onclick="bankProcessor.extractStatement()">
+                            <i class="fas fa-play"></i> Extract Transactions
+                        </button>
+                    </div>
+                </div>
+
+                <div class="progress-bar" id="progressBar">
+                    <div class="progress-fill"></div>
+                </div>
+            </div>
+
+            <!-- Step 2: Results & Process -->
+            <div class="workflow-step" id="preview-section" style="display: none;">
+                <h3><i class="fas fa-search"></i> Extraction Results</h3>
+                
+                <div class="results-container" id="extractionResult">
+                    <div class="summary-stats">
+                        <div class="stat-card">
+                            <div class="stat-label">Total Transactions</div>
+                            <div class="stat-value" id="transactionCount">0</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Total Debits</div>
+                            <div class="stat-value expense" id="totalDebits">$0</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Total Credits</div>
+                            <div class="stat-value income" id="totalCredits">$0</div>
+                        </div>
+                    </div>
+                    
+                    <div class="button-group" style="justify-content: center;">
+                        <button class="secondary-button" onclick="bankProcessor.viewTransactions()">
+                            <i class="fas fa-list"></i> View All Transactions
+                        </button>
+                        <button class="primary-button" onclick="bankProcessor.saveJSON()">
+                            <i class="fas fa-save"></i> Save JSON
+                        </button>
+                    </div>
+                    
+                    <details style="margin-top: 1.5rem;">
+                        <summary style="cursor: pointer; color: #667eea; font-weight: 500;">
+                            View JSON Preview
+                        </summary>
+                        <pre class="json-preview" id="jsonPreview"></pre>
+                    </details>
+                </div>
+            </div>
+
+            <!-- Step 3: Process -->
+            <div class="workflow-step" id="process-section" style="display: none;">
+                <h3><i class="fas fa-cogs"></i> Process Transactions</h3>
+                
+                <div class="export-grid">
+                    <div class="export-option" onclick="bankProcessor.addGSTCoding()">
+                        <i class="fas fa-percentage"></i>
+                        <h4>Add GST Coding</h4>
+                        <p>Automatically categorize GST</p>
+                    </div>
+                    <div class="export-option" onclick="bankProcessor.classifyTransactions()">
+                        <i class="fas fa-tags"></i>
+                        <h4>Classify Transactions</h4>
+                        <p>Add expense categories</p>
+                    </div>
+                    <div class="export-option" onclick="bankProcessor.businessPersonal()">
+                        <i class="fas fa-user-tie"></i>
+                        <h4>Business/Personal Split</h4>
+                        <p>Separate transaction types</p>
+                    </div>
+                    <div class="export-option" onclick="bankProcessor.addNotes()">
+                        <i class="fas fa-sticky-note"></i>
+                        <h4>Add Notes</h4>
+                        <p>Annotate transactions</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 4: Export -->
+            <div class="workflow-step" id="export-section" style="display: none;">
+                <h3><i class="fas fa-download"></i> Export Options</h3>
+                
+                <div class="export-grid">
+                    <div class="export-option" onclick="bankProcessor.exportCSV()">
+                        <i class="fas fa-file-csv"></i>
+                        <h4>Export as CSV</h4>
+                        <p>For Excel and spreadsheets</p>
+                    </div>
+                    <div class="export-option" onclick="bankProcessor.exportQuickBooks()">
+                        <i class="fas fa-calculator"></i>
+                        <h4>QuickBooks Format</h4>
+                        <p>Import to QuickBooks</p>
+                    </div>
+                    <div class="export-option" onclick="bankProcessor.exportXero()">
+                        <i class="fas fa-cloud"></i>
+                        <h4>Xero Format</h4>
+                        <p>Import to Xero accounting</p>
+                    </div>
+                    <div class="export-option" onclick="bankProcessor.exportTaxReport()">
+                        <i class="fas fa-file-invoice"></i>
+                        <h4>Tax Report</h4>
+                        <p>Generate tax summary</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Saved Files -->
+            <div class="workflow-step" style="margin-top: 3rem;">
+                <h3><i class="fas fa-history"></i> Previously Processed Files</h3>
+                <div id="savedFiles">
+                    <p style="text-align: center; color: #6b7280;">No saved statements yet</p>
+                </div>
+            </div>
+        </main>
+
+        <!-- Transaction Modal -->
+        <div class="modal-overlay" id="transactionModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Transaction Details</h3>
+                    <button class="close-button" onclick="bankProcessor.closeModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <table class="transaction-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Description</th>
+                            <th>Debit</th>
+                            <th>Credit</th>
+                            <th>Balance</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transactionList">
+                        <!-- Transactions will be inserted here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="static/js/bank_processor.js"></script>
+    <script src="static/js/bank_processor_enhanced.js"></script>
+    <script>
+        // Update server status
+        async function updateServerStatus() {
+            try {
+                const response = await fetch('http://localhost:8000/health');
+                if (response.ok) {
+                    document.querySelector('.status-dot').style.background = '#10b981';
+                    document.querySelector('.status-text').textContent = 'Connected';
+                    
+                    // Update VRAM status
+                    const vramResponse = await fetch('http://localhost:8000/vram_status');
+                    if (vramResponse.ok) {
+                        const vramData = await vramResponse.json();
+                        document.querySelector('#vramUsage span').textContent = 
+                            `VRAM: ${vramData.usage_percentage.toFixed(1)}%`;
+                    }
+                } else {
+                    throw new Error('Server not responding');
+                }
+            } catch (error) {
+                document.querySelector('.status-dot').style.background = '#ef4444';
+                document.querySelector('.status-text').textContent = 'Disconnected';
+            }
+        }
+
+        // Update status every 5 seconds
+        updateServerStatus();
+        setInterval(updateServerStatus, 5000);
+        
+        // Handle radio button styling
+        document.querySelectorAll('input[name="format"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                document.querySelectorAll('.export-option').forEach(option => {
+                    option.style.borderColor = '#e5e7eb';
+                    option.style.background = 'white';
+                });
+                this.closest('.export-option').style.borderColor = '#667eea';
+                this.closest('.export-option').style.background = 'rgba(102, 126, 234, 0.05)';
+            });
+        });
+        
+        // Set initial selection style
+        document.querySelector('input[name="format"]:checked').closest('.export-option').style.borderColor = '#667eea';
+        document.querySelector('input[name="format"]:checked').closest('.export-option').style.background = 'rgba(102, 126, 234, 0.05)';
+    </script>
+</body>
+</html>
