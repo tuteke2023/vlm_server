@@ -1,0 +1,24 @@
+# Core dependencies
+torch>=2.0.0
+torchvision>=0.15.0
+transformers @ git+https://github.com/huggingface/transformers
+accelerate>=0.20.0
+qwen-vl-utils[decord]==0.0.8
+
+# API server
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+pydantic>=2.0.0
+
+# Structured output parsing
+langchain>=0.1.0
+langchain-community>=0.1.0
+
+# Image processing
+Pillow>=10.0.0
+requests>=2.31.0
+PyMuPDF>=1.23.0  # For PDF to image conversion
+
+# Optional but recommended for better performance
+ninja  # For faster model compilation
+flash-attn>=2.0.0  # For faster attention (requires CUDA)

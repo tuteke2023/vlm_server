@@ -8,6 +8,8 @@ env/
 venv/
 ENV/
 .venv
+*-env/
+audio-env/
 
 # Logs
 *.log

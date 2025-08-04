@@ -1,0 +1,199 @@
+{
+  "gst_rules": {
+    "description": "Australian GST rules and corrections",
+    "gst_rate": 0.1,
+    "calculation_note": "GST amount = Total amount ÷ 11 (for GST-inclusive prices)",
+    "rules": [
+      {
+        "rule": "Income transactions (credits) that are for goods/services include GST that must be paid to ATO",
+        "example": "Client payment of $1100 includes $100 GST to be paid to ATO"
+      },
+      {
+        "rule": "Expense transactions (debits) for business purchases include GST that can be claimed back",
+        "example": "Office supplies $110 includes $10 GST that can be claimed"
+      },
+      {
+        "rule": "Wages, salaries, and payroll are GST-free (no GST applicable)",
+        "example": "Payroll deposit is GST-free"
+      },
+      {
+        "rule": "Basic food, medical services, education are GST-free",
+        "example": "Fresh groceries from supermarket are mostly GST-free"
+      },
+      {
+        "rule": "Financial supplies like bank fees are input-taxed (no GST claimable)",
+        "example": "Bank account fees cannot claim GST"
+      }
+    ]
+  },
+  "transaction_corrections": [
+    {
+      "pattern": "payroll|salary|wages",
+      "corrections": {
+        "gst_applicable": false,
+        "gst_amount": 0,
+        "gst_category": "GST-free supply",
+        "business_percentage": 100,
+        "category": "Income/Revenue",
+        "subcategory": "Wages & Salaries",
+        "tax_deductible": false,
+        "notes": "Wages and salaries are GST-free. This is income, not an expense."
+      }
+    },
+    {
+      "pattern": "officeworks|office supplies|stationery",
+      "corrections": {
+        "gst_applicable": true,
+        "gst_category": "GST on purchases",
+        "business_percentage": 100,
+        "category": "Office Expenses",
+        "subcategory": "Office Supplies",
+        "tax_deductible": true,
+        "notes": "Office supplies include GST. GST amount = total ÷ 11"
+      }
+    },
+    {
+      "pattern": "telstra|optus|vodafone|mobile service|phone bill",
+      "corrections": {
+        "gst_applicable": true,
+        "gst_category": "GST on purchases",
+        "business_percentage": 50,
+        "category": "Utilities",
+        "subcategory": "Telecommunications",
+        "tax_deductible": true,
+        "notes": "Telecom services include GST. Often mixed business/personal use."
+      }
+    },
+    {
+      "pattern": "netflix|spotify|entertainment subscription",
+      "corrections": {
+        "gst_applicable": true,
+        "gst_category": "GST on purchases",
+        "business_percentage": 0,
+        "category": "Personal/Non-business",
+        "subcategory": "Entertainment",
+        "tax_deductible": false,
+        "notes": "Entertainment subscriptions include GST but are typically personal."
+      }
+    },
+    {
+      "pattern": "client payment|consulting|invoice",
+      "corrections": {
+        "gst_applicable": true,
+        "gst_category": "GST on sales",
+        "business_percentage": 100,
+        "category": "Income/Revenue",
+        "subcategory": "Professional Services Income",
+        "tax_deductible": false,
+        "notes": "Business income includes GST that must be remitted to ATO."
+      }
+    },
+    {
+      "pattern": "uber eats|menulog|lunch|dinner|meal",
+      "corrections": {
+        "gst_applicable": true,
+        "gst_category": "GST on purchases",
+        "business_percentage": 50,
+        "category": "Travel & Entertainment",
+        "subcategory": "Meals & Entertainment",
+        "tax_deductible": true,
+        "deductible_percentage": 50,
+        "notes": "Meal delivery includes GST. Business meals are 50% deductible."
+      }
+    },
+    {
+      "pattern": "bunnings|hardware|tools",
+      "corrections": {
+        "gst_applicable": true,
+        "gst_category": "GST on purchases",
+        "business_percentage": 100,
+        "category": "Operating Expenses",
+        "subcategory": "Tools & Equipment",
+        "tax_deductible": true,
+        "notes": "Hardware purchases include GST and are typically business expenses."
+      }
+    },
+    {
+      "pattern": "ato|tax payment|tax office",
+      "corrections": {
+        "gst_applicable": false,
+        "gst_amount": 0,
+        "gst_category": "Not applicable",
+        "business_percentage": 100,
+        "category": "Taxes & Licenses",
+        "subcategory": "Income Tax Payments",
+        "tax_deductible": false,
+        "notes": "Tax payments to ATO do not include GST and are not deductible."
+      }
+    },
+    {
+      "pattern": "qantas|virgin|jetstar|airways|flight",
+      "corrections": {
+        "gst_applicable": true,
+        "gst_category": "GST on purchases",
+        "business_percentage": 100,
+        "category": "Travel & Entertainment",
+        "subcategory": "Air Travel",
+        "tax_deductible": true,
+        "notes": "Domestic flights include GST. Business travel is deductible."
+      }
+    },
+    {
+      "pattern": "coles|woolworths|aldi|supermarket|groceries",
+      "corrections": {
+        "gst_applicable": false,
+        "gst_amount": 0,
+        "gst_category": "GST-free supply",
+        "business_percentage": 0,
+        "category": "Personal/Non-business",
+        "subcategory": "Groceries",
+        "tax_deductible": false,
+        "notes": "Basic groceries are mostly GST-free and personal expenses."
+      }
+    }
+  ],
+  "learning_examples": [
+    {
+      "description": "Payroll Deposit - HOTEL",
+      "amount": 694.81,
+      "type": "credit",
+      "correct_classification": {
+        "gst_applicable": false,
+        "gst_amount": 0,
+        "gst_category": "GST-free supply",
+        "business_percentage": 100,
+        "category": "Income/Revenue",
+        "subcategory": "Wages & Salaries",
+        "reasoning": "Payroll/wages are GST-free. This is employment income."
+      }
+    },
+    {
+      "description": "Officeworks - Office Supplies",
+      "amount": 89.50,
+      "type": "debit",
+      "correct_classification": {
+        "gst_applicable": true,
+        "gst_amount": 8.14,
+        "gst_category": "GST on purchases",
+        "business_percentage": 100,
+        "category": "Office Expenses",
+        "subcategory": "Office Supplies",
+        "reasoning": "Office supplies from Officeworks include GST. $89.50 ÷ 11 = $8.14 GST"
+      }
+    },
+    {
+      "description": "Client Payment - Consulting INV-2024-045",
+      "amount": 2200.00,
+      "type": "credit",
+      "correct_classification": {
+        "gst_applicable": true,
+        "gst_amount": 200.00,
+        "gst_category": "GST on sales",
+        "business_percentage": 100,
+        "category": "Income/Revenue",
+        "subcategory": "Professional Services Income",
+        "reasoning": "Consulting income includes GST. $2200 ÷ 11 = $200 GST to remit to ATO"
+      }
+    }
+  ]
+}

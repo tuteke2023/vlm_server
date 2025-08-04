@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>VLM Server Quick Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .test-container { max-width: 800px; margin: 0 auto; }
+        .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+        button { padding: 10px 20px; margin: 10px 0; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; }
+        button:hover { background: #0056b3; }
+        .result { margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 4px; white-space: pre-wrap; }
+        .success { background: #d4edda; border-color: #c3e6cb; color: #155724; }
+        .error { background: #f8d7da; border-color: #f5c6cb; color: #721c24; }
+        .loading { color: #6c757d; }
+        input[type="file"] { margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 VLM Server Quick Test</h1>
+        <p>This page tests the CORS fix and basic functionality of the VLM server.</p>
+        
+        <!-- Server Status Test -->
+        <div class="test-section">
+            <h3>1. Server Status Test</h3>
+            <button onclick="testServerHealth()">Check Server Health</button>
+            <button onclick="testVRAMStatus()">Check VRAM Status</button>
+            <div id="statusResult" class="result"></div>
+        </div>
+        
+        <!-- Simple Text Test -->
+        <div class="test-section">
+            <h3>2. Simple Text Generation Test</h3>
+            <button onclick="testSimpleText()">Test: What is 2+2?</button>
+            <div id="textResult" class="result"></div>
+        </div>
+        
+        <!-- Image Upload Test -->
+        <div class="test-section">
+            <h3>3. Image Analysis Test</h3>
+            <input type="file" id="imageFile" accept="image/*">
+            <button onclick="testImageAnalysis()">Analyze Uploaded Image</button>
+            <div id="imageResult" class="result"></div>
+        </div>
+        
+        <!-- Custom Query Test -->
+        <div class="test-section">
+            <h3>4. Custom Query Test</h3>
+            <textarea id="customQuery" rows="3" cols="60" placeholder="Enter your custom query here...">Explain the concept of artificial intelligence in simple terms.</textarea><br>
+            <button onclick="testCustomQuery()">Send Custom Query</button>
+            <div id="queryResult" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        const SERVER_URL = 'http://localhost:8000';
+        
+        function showResult(elementId, message, isSuccess = true, isLoading = false) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = 'result ' + (isLoading ? 'loading' : (isSuccess ? 'success' : 'error'));
+        }
+        
+        async function testServerHealth() {
+            showResult('statusResult', 'Checking server health...', true, true);
+            try {
+                const response = await fetch(`${SERVER_URL}/health`);
+                const data = await response.json();
+                showResult('statusResult', `✅ Server Status: ${data.status}\nModel Loaded: ${data.model_loaded}\nDevice: ${data.device}`, true);
+            } catch (error) {
+                showResult('statusResult', `❌ Error: ${error.message}`, false);
+            }
+        }
+        
+        async function testVRAMStatus() {
+            showResult('statusResult', 'Checking VRAM status...', true, true);
+            try {
+                const response = await fetch(`${SERVER_URL}/vram_status`);
+                const data = await response.json();
+                const message = `📊 VRAM Status:
+Usage: ${data.usage_percentage.toFixed(1)}%
+Allocated: ${data.allocated_gb.toFixed(1)} GB
+Total: ${data.total_gb.toFixed(1)} GB
+Free: ${data.free_gb.toFixed(1)} GB`;
+                showResult('statusResult', message, true);
+            } catch (error) {
+                showResult('statusResult', `❌ Error: ${error.message}`, false);
+            }
+        }
+        
+        async function testSimpleText() {
+            showResult('textResult', 'Processing simple text query...', true, true);
+            try {
+                const response = await fetch(`${SERVER_URL}/api/v1/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        messages: [{ role: 'user', content: 'What is 2+2? Answer with just the number.' }],
+                        max_new_tokens: 10
+                    })
+                });
+                
+                const data = await response.json();
+                const message = `✅ Response: "${data.response}"
+Processing Time: ${data.processing_time.toFixed(2)}s
+Tokens: ${data.usage.total_tokens}`;
+                showResult('textResult', message, true);
+            } catch (error) {
+                showResult('textResult', `❌ Error: ${error.message}`, false);
+            }
+        }
+        
+        async function testImageAnalysis() {
+            const fileInput = document.getElementById('imageFile');
+            if (!fileInput.files[0]) {
+                showResult('imageResult', '❌ Please select an image file first', false);
+                return;
+            }
+            
+            showResult('imageResult', 'Analyzing image...', true, true);
+            
+            try {
+                const file = fileInput.files[0];
+                const base64 = await fileToBase64(file);
+                
+                const response = await fetch(`${SERVER_URL}/api/v1/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        messages: [{
+                            role: 'user',
+                            content: [
+                                { type: 'image', image: base64 },
+                                { type: 'text', text: 'Describe what you see in this image.' }
+                            ]
+                        }],
+                        max_new_tokens: 200
+                    })
+                });
+                
+                const data = await response.json();
+                const message = `✅ Image Analysis Result:
+"${data.response}"
+
+Processing Time: ${data.processing_time.toFixed(2)}s
+Tokens Used: ${data.usage.total_tokens}`;
+                showResult('imageResult', message, true);
+            } catch (error) {
+                showResult('imageResult', `❌ Error: ${error.message}`, false);
+            }
+        }
+        
+        async function testCustomQuery() {
+            const query = document.getElementById('customQuery').value.trim();
+            if (!query) {
+                showResult('queryResult', '❌ Please enter a custom query', false);
+                return;
+            }
+            
+            showResult('queryResult', 'Processing custom query...', true, true);
+            
+            try {
+                const response = await fetch(`${SERVER_URL}/api/v1/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        messages: [{ role: 'user', content: query }],
+                        max_new_tokens: 300
+                    })
+                });
+                
+                const data = await response.json();
+                const message = `✅ Custom Query Result:
+"${data.response}"
+
+Processing Time: ${data.processing_time.toFixed(2)}s
+Tokens Used: ${data.usage.total_tokens}`;
+                showResult('queryResult', message, true);
+            } catch (error) {
+                showResult('queryResult', `❌ Error: ${error.message}`, false);
+            }
+        }
+        
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+        
+        // Auto-run server health check on page load
+        window.onload = () => {
+            testServerHealth();
+        };
+    </script>
+</body>
+</html>

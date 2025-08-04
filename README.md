@@ -112,9 +112,15 @@ python3 -m http.server 8080
 
 ## 🌐 **Access the Interfaces**
 
+### Web Interfaces
+- **🔧 Main Web UI**: `http://localhost:8080/` - Document processing tools
 - **💬 Chat Interface**: `http://localhost:8080/chat.html` - Conversational AI with memory
-- **🔧 Document Processing**: `http://localhost:8080/index.html` - Specialized document tools
-- **🔗 Navigation**: Both interfaces have navigation links between them
+- **💳 Bank Processor**: `http://localhost:8080/bank_processor.html` - Bank statement extraction
+- **🎤 Audio Transcription**: `http://localhost:8002/` - Audio to text conversion (Whisper)
+
+### API Endpoints
+- **VLM API**: `http://localhost:8000` - Vision Language Model API
+- **Audio API**: `http://localhost:8001` - Whisper transcription API
 
 ## 🎯 Use Cases
 
