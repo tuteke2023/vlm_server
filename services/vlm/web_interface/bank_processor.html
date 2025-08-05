@@ -633,18 +633,22 @@
 
     <script src="static/js/bank_processor.js"></script>
     <script src="static/js/bank_processor_enhanced.js"></script>
-    <script src="static/js/bank_processor_langchain.js"></script>
     <script>
         // Update server status
         async function updateServerStatus() {
             try {
-                const response = await fetch('http://localhost:8000/health');
+                const currentHost = window.location.hostname;
+                const serverUrl = currentHost === 'localhost' || currentHost === '127.0.0.1' 
+                    ? 'http://localhost:8000'
+                    : `http://${currentHost}:8000`;
+                    
+                const response = await fetch(`${serverUrl}/health`);
                 if (response.ok) {
                     document.querySelector('.status-dot').style.background = '#10b981';
                     document.querySelector('.status-text').textContent = 'Connected';
                     
                     // Update VRAM status
-                    const vramResponse = await fetch('http://localhost:8000/vram_status');
+                    const vramResponse = await fetch(`${serverUrl}/vram_status`);
                     if (vramResponse.ok) {
                         const vramData = await vramResponse.json();
                         document.querySelector('#vramUsage span').textContent = 

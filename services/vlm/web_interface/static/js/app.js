@@ -5,7 +5,12 @@
 
 class VLMApp {
     constructor() {
-        this.serverUrl = 'http://localhost:8000';
+        // Dynamically determine server URL based on current location
+        const currentHost = window.location.hostname;
+        this.serverUrl = currentHost === 'localhost' || currentHost === '127.0.0.1' 
+            ? 'http://localhost:8000'
+            : `http://${currentHost}:8000`;
+        
         this.currentTool = 'bank-transactions';
         this.uploadedFiles = new Map();
         this.isProcessing = false;
@@ -20,6 +25,16 @@ class VLMApp {
         this.updateVramStatus();
         this.updateDetailedVramStatus();
         this.loadAvailableModels();
+        
+        // Set audio transcription link dynamically
+        const audioLink = document.getElementById('audioTranscriptionLink');
+        if (audioLink) {
+            const currentHost = window.location.hostname;
+            const audioUrl = currentHost === 'localhost' || currentHost === '127.0.0.1' 
+                ? 'http://localhost:8002'
+                : `http://${currentHost}:8002`;
+            audioLink.href = audioUrl;
+        }
         
         // Update server status every 30 seconds
         setInterval(() => {
@@ -506,17 +521,30 @@ class VLMApp {
             ]
         }];
         
-        const response = await fetch(`${this.serverUrl}/api/v1/generate`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
+        // Use bank extraction endpoint for bank transactions
+        const endpoint = this.currentTool === 'bank-transactions' 
+            ? `${this.serverUrl}/api/v1/bank_extract_json`
+            : `${this.serverUrl}/api/v1/generate`;
+            
+        const requestBody = this.currentTool === 'bank-transactions'
+            ? { 
+                messages: messages,
+                max_new_tokens: this.getMaxTokens(),  // Pass max tokens for bank extraction too
+                temperature: 0.1  // Lower temperature for more consistent extraction
+            }
+            : {
                 messages: messages,
                 max_new_tokens: this.getMaxTokens(),
                 temperature: 0.7,
                 enable_safety_check: document.getElementById('enableSafetyCheck').checked
-            })
+            };
+        
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
         });
         
         if (!response.ok) {
@@ -533,6 +561,39 @@ class VLMApp {
             reader.onload = () => resolve(reader.result);
             reader.onerror = error => reject(error);
         });
+    }
+    
+    formatBankTransactions(data) {
+        let output = 'Bank Statement Analysis\n';
+        output += '======================\n\n';
+        
+        if (data.account_number) {
+            output += `Account Number: ${data.account_number}\n`;
+        }
+        if (data.statement_period) {
+            output += `Statement Period: ${data.statement_period}\n`;
+        }
+        output += `\nTotal Transactions: ${data.transaction_count || 0}\n`;
+        output += `Total Debits: $${(data.total_debits || 0).toFixed(2)}\n`;
+        output += `Total Credits: $${(data.total_credits || 0).toFixed(2)}\n\n`;
+        
+        output += 'Transactions:\n';
+        output += '-------------\n';
+        output += 'Date\t\tDescription\t\t\t\tDebit\t\tCredit\t\tBalance\n';
+        
+        if (data.transactions && data.transactions.length > 0) {
+            data.transactions.forEach(tx => {
+                const date = tx.date || '';
+                const desc = (tx.description || '').substring(0, 40).padEnd(40, ' ');
+                const debit = tx.debit ? `$${tx.debit.toFixed(2)}` : '';
+                const credit = tx.credit ? `$${tx.credit.toFixed(2)}` : '';
+                const balance = tx.balance ? `$${tx.balance.toFixed(2)}` : '';
+                
+                output += `${date}\t${desc}\t${debit}\t\t${credit}\t\t${balance}\n`;
+            });
+        }
+        
+        return output;
     }
     
     generatePrompt() {
@@ -618,7 +679,7 @@ class VLMApp {
     getMaxTokens() {
         switch (this.currentTool) {
             case 'bank-transactions':
-                return 1000;
+                return 3000;  // Increased to handle full bank statements
             case 'document-summary':
                 const length = document.getElementById('summaryLength').value;
                 return length === 'brief' ? 200 : length === 'medium' ? 500 : 1000;
@@ -648,11 +709,21 @@ class VLMApp {
         
         results.forEach((result, index) => {
             combinedResults += `=== ${result.fileName} ===\n\n`;
-            combinedResults += result.result.response;
-            combinedResults += '\n\n';
             
-            totalTokens += result.result.usage.total_tokens;
-            totalTime += result.result.processing_time;
+            // Handle bank extraction response differently
+            if (this.currentTool === 'bank-transactions' && result.result.data) {
+                const data = result.result.data;
+                combinedResults += this.formatBankTransactions(data);
+                totalTime += result.result.processing_time || 0;
+            } else {
+                combinedResults += result.result.response || JSON.stringify(result.result, null, 2);
+                combinedResults += '\n\n';
+                
+                if (result.result.usage) {
+                    totalTokens += result.result.usage.total_tokens;
+                }
+                totalTime += result.result.processing_time || 0;
+            }
         });
         
         resultsContent.textContent = combinedResults;

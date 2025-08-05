@@ -53,7 +53,13 @@ Transactions:
 ${JSON.stringify(transactions, null, 2)}`;
 
         try {
-            const response = await fetch('http://localhost:8000/api/v1/generate', {
+            // Dynamically determine server URL
+            const currentHost = window.location.hostname;
+            const serverUrl = currentHost === 'localhost' || currentHost === '127.0.0.1' 
+                ? 'http://localhost:8000'
+                : `http://${currentHost}:8000`;
+                
+            const response = await fetch(`${serverUrl}/api/v1/generate`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

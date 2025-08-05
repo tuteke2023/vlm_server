@@ -810,9 +810,10 @@ app = FastAPI(
 )
 
 # Add CORS middleware for web interface
+# Allow all origins for development (restrict in production)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8080", "http://127.0.0.1:8080"],
+    allow_origins=["*"],  # Allow all origins for LAN access
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -987,6 +988,73 @@ async def export_bank_statement(request: BankExportRequest):
         logger.error(f"Failed to export bank statement: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/v1/bank_extract_unified")
+async def extract_bank_unified(request: BankExportRequest):
+    """Unified bank extraction endpoint using LangChain validation"""
+    
+    try:
+        if vlm_server.model is None:
+            raise HTTPException(status_code=503, detail="Model not loaded")
+        
+        from unified_bank_extractor import UnifiedBankExtractor
+        
+        # Get the VLM response (either from previous message or generate new)
+        ai_response_text = None
+        
+        # Check if we have a previous response
+        for msg in reversed(request.messages):
+            if msg.role == "assistant" and msg.content:
+                if any(keyword in msg.content.lower() for keyword in ['date', 'description', 'balance', 'transaction']):
+                    ai_response_text = msg.content
+                    break
+        
+        # If no previous response, generate one with table prompt
+        if not ai_response_text:
+            table_prompt = """
+Extract ALL transactions from this bank statement in a structured table format.
+
+Use this format:
+| Date | Description | Ref. | Withdrawals | Deposits | Balance |
+
+Include EVERY transaction. Extract complete amounts with all digits."""
+            
+            # Modify last user message to use table prompt
+            modified_messages = []
+            for i, msg in enumerate(request.messages):
+                if msg.role == "user" and i == len(request.messages) - 1:
+                    if isinstance(msg.content, list):
+                        new_content = []
+                        for item in msg.content:
+                            if item.type == "text":
+                                new_content.append(ContentItem(type="text", text=table_prompt))
+                            else:
+                                new_content.append(item)
+                        modified_messages.append(Message(role=msg.role, content=new_content))
+                    else:
+                        modified_messages.append(Message(role=msg.role, content=table_prompt))
+                else:
+                    modified_messages.append(msg)
+            
+            # Generate response
+            ai_response = await vlm_server.generate(GenerateRequest(
+                messages=modified_messages,
+                max_new_tokens=2048,
+                temperature=0.1
+            ))
+            ai_response_text = ai_response.response
+        
+        # Use unified extractor
+        result = UnifiedBankExtractor.extract_and_validate(
+            ai_response_text, 
+            output_format=request.export_format
+        )
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Failed to extract bank statement: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/v1/bank_extract_json")
 async def extract_bank_statement_json(request: GenerateRequest):
     """Extract bank statement to JSON format using table extraction + conversion"""
@@ -1007,6 +1075,13 @@ IMPORTANT RULES:
 
 Use this format:
 | Date | Description | Ref. | Withdrawals | Deposits | Balance |
+
+CRITICAL RULES FOR AMOUNTS:
+- Extract the COMPLETE amount including dollars AND cents (e.g., 1,750.00 not just 17 or 1)
+- Include ALL digits shown in the original (e.g., 850.00 not 8 or 85)
+- Use commas for thousands (e.g., 2,200.00)
+- Always include .00 for whole dollar amounts
+- If amount is shown as 1750, write it as 1,750.00
 
 Include EVERY transaction shown, including:
 - All payments and withdrawals  
@@ -1065,7 +1140,7 @@ Make sure to capture the COMPLETE transaction list from ALL pages.
         # Generate response
         ai_response = await vlm_server.generate(GenerateRequest(
             messages=modified_messages,
-            max_new_tokens=request.max_new_tokens or 2048,
+            max_new_tokens=request.max_new_tokens or 4096,  # Increased for complete extraction
             temperature=0.1
         ))
         

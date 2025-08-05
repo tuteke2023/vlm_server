@@ -92,7 +92,9 @@ class BankProcessor {
                         type: "text",
                         text: format === 'json' 
                             ? "Extract all transactions from this bank statement in JSON format with fields: date, description, debit, credit, balance. IMPORTANT: Include ALL transactions including small amounts like 6.77"
-                            : "Extract ALL transactions from this bank statement in a table format with columns: Date | Description | Reference | Withdrawals/Debit | Deposits/Credit | Balance. Include EVERY transaction."
+                            : `Extract ALL transactions from this bank statement as a table with columns: Date | Description | Debit | Credit | Balance
+
+Include EVERY transaction - don't stop early. Extract all amounts completely with dollars and cents.`
                     },
                     {
                         type: "image",
@@ -103,10 +105,15 @@ class BankProcessor {
 
             this.updateProgressBar(60);
 
-            // Call the appropriate endpoint based on format
-            const endpoint = format === 'json' 
-                ? 'http://localhost:8000/api/v1/bank_extract_json'
-                : 'http://localhost:8000/api/v1/generate';
+            // Use unified endpoint for both formats
+            // Dynamically determine server URL
+            const currentHost = window.location.hostname;
+            const serverUrl = currentHost === 'localhost' || currentHost === '127.0.0.1' 
+                ? 'http://localhost:8000'
+                : `http://${currentHost}:8000`;
+                
+            // Always use unified endpoint with LangChain validation
+            const endpoint = `${serverUrl}/api/v1/bank_extract_unified`;
                 
             const response = await fetch(endpoint, {
                 method: 'POST',
@@ -115,7 +122,8 @@ class BankProcessor {
                 },
                 body: JSON.stringify({
                     messages: messages,
-                    max_new_tokens: 2048,  // Increased for complete extraction
+                    export_format: format === 'json' ? 'json' : 'table',
+                    max_new_tokens: 4096,  // Increased to ensure complete extraction
                     temperature: 0.1
                 })
             });
@@ -132,21 +140,59 @@ class BankProcessor {
             // Process the extraction result
             console.log('Extraction result:', result);
             
-            if (format === 'json' && result.data) {
-                // Direct JSON response from new endpoint
-                console.log('Using result.data:', result.data);
-                this.extractedData = result.data;
-                this.displayExtractionResult(result.data);
+            // Check which endpoint was used
+            console.log('Format selected:', format);
+            console.log('Endpoint used:', endpoint);
+            console.log('Result structure:', {
+                hasData: !!result.data,
+                hasResponse: !!result.response,
+                dataType: typeof result.data,
+                keys: Object.keys(result)
+            });
+            
+            // Handle unified endpoint response
+            if (result.status === 'success') {
+                console.log(`Processing ${format} format with LangChain validation`);
                 
-                // Show process section
+                // Check for validation warnings
+                if (result.validation_errors && result.validation_errors.length > 0) {
+                    console.warn('Balance validation issues detected:', result.validation_errors);
+                    // Could show a warning to user here
+                }
+                
+                if (format === 'json') {
+                    // JSON format - data is already structured
+                    if (result.data && result.data.transactions) {
+                        console.log('Using validated JSON data:', result.data);
+                        this.extractedData = result.data;
+                        this.displayExtractionResult(result.data);
+                    }
+                } else {
+                    // Table format - data is a formatted string
+                    console.log('Processing validated table data');
+                    this.processTableExtraction(result.data);
+                }
+                
+                // Show sections
                 document.getElementById('process-section').style.display = 'block';
                 document.getElementById('export-section').style.display = 'block';
-            } else if (format === 'json') {
-                console.log('Processing JSON from response text');
-                this.processJSONExtraction(result.response);
+                
+                // Show confidence if available
+                if (result.confidence) {
+                    console.log(`Extraction confidence: ${(result.confidence * 100).toFixed(0)}%`);
+                }
+            } else if (result.status === 'warning') {
+                // Fallback parser was used
+                console.warn('Using fallback parser:', result.message);
+                if (format === 'json' && result.data) {
+                    this.extractedData = result.data;
+                    this.displayExtractionResult(result.data);
+                } else {
+                    this.processTableExtraction(result.data || result.response);
+                }
             } else {
-                console.log('Processing table extraction');
-                this.processTableExtraction(result.response);
+                console.error('Bank extraction failed:', result);
+                alert(result.message || 'Failed to extract bank data. Please try again.');
             }
 
             // Update progress tracker
@@ -232,20 +278,98 @@ class BankProcessor {
             
             // Parse pipe-delimited format
             if (line.includes('|')) {
-                const parts = line.split('|').map(p => p.trim()).filter(p => p);
+                // Split by | but don't filter out empty strings - we need to preserve column positions
+                const parts = line.split('|').map(p => p.trim());
+                
+                // Remove first and last empty elements if they exist (from leading/trailing |)
+                if (parts[0] === '') parts.shift();
+                if (parts[parts.length - 1] === '') parts.pop();
+                
                 if (parts.length >= 4) {
+                    // Helper function to parse amounts with commas and dollar signs
+                    const parseAmount = (str) => {
+                        if (!str || str === '-' || str === '') return 0;
+                        // Remove dollar signs, commas, and parse
+                        return parseFloat(str.replace(/[$,]/g, '')) || 0;
+                    };
+                    
+                    // Handle both old format (Date|Desc|Debit|Credit|Balance) and 
+                    // new format (Date|Desc|Withdrawals|Deposits|Balance)
+                    let debit, credit, balance;
+                    
+                    if (parts.length === 5) {
+                        // 5 columns: Date | Description | Withdrawals/Debit | Deposits/Credit | Balance
+                        debit = parseAmount(parts[2]);
+                        credit = parseAmount(parts[3]);
+                        balance = parseAmount(parts[4]);
+                    } else if (parts.length === 4) {
+                        // 4 columns: Date | Description | Amount | Balance
+                        // Need to determine if debit or credit based on description
+                        const amount = parseAmount(parts[2]);
+                        const desc = parts[1].toLowerCase();
+                        
+                        if (desc.includes('direct credit') || desc.includes('deposit') || 
+                            desc.includes('transfer from')) {
+                            credit = amount;
+                            debit = 0;
+                        } else {
+                            debit = amount;
+                            credit = 0;
+                        }
+                        balance = parseAmount(parts[3]);
+                    }
+                    
                     transactions.push({
                         date: parts[0],
                         description: parts[1],
-                        debit: parseFloat(parts[2]) || 0,
-                        credit: parseFloat(parts[3]) || 0,
-                        balance: parseFloat(parts[4]) || 0
+                        debit: debit || 0,
+                        credit: credit || 0,
+                        balance: balance || 0
                     });
                 }
             }
         }
         
+        // Validate balances
+        this.validateBalances(transactions);
+        
         return transactions;
+    }
+
+    validateBalances(transactions) {
+        if (transactions.length === 0) return;
+        
+        console.log('Validating transaction balances...');
+        let hasErrors = false;
+        
+        for (let i = 1; i < transactions.length; i++) {
+            const prevBalance = transactions[i-1].balance;
+            const currentTrans = transactions[i];
+            const expectedBalance = prevBalance + currentTrans.credit - currentTrans.debit;
+            
+            // Allow small rounding differences (within 1 cent)
+            if (Math.abs(expectedBalance - currentTrans.balance) > 0.01) {
+                console.warn(`Balance mismatch at transaction ${i + 1}:`, {
+                    date: currentTrans.date,
+                    description: currentTrans.description,
+                    previousBalance: prevBalance,
+                    debit: currentTrans.debit,
+                    credit: currentTrans.credit,
+                    expectedBalance: expectedBalance,
+                    actualBalance: currentTrans.balance,
+                    difference: currentTrans.balance - expectedBalance
+                });
+                hasErrors = true;
+            }
+        }
+        
+        if (hasErrors) {
+            console.error('Balance validation failed. The debit/credit columns may be swapped or the balance values are incorrect.');
+            // You could show an alert here if needed
+            // alert('Warning: Some transactions have balance discrepancies. Please review the extracted data.');
+        } else {
+            console.log('All balances validated successfully.');
+        }
     }
 
     displayExtractionResult(data) {

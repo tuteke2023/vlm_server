@@ -618,7 +618,7 @@ class VLMApp {
     getMaxTokens() {
         switch (this.currentTool) {
             case 'bank-transactions':
-                return 1000;
+                return 3000;  // Increased to handle full bank statements
             case 'document-summary':
                 const length = document.getElementById('summaryLength').value;
                 return length === 'brief' ? 200 : length === 'medium' ? 500 : 1000;

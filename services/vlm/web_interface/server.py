@@ -34,7 +34,7 @@ def main():
     print("⚠️  Make sure your VLM server is running on http://localhost:8000")
     print("\nPress Ctrl+C to stop the server\n")
     
-    with socketserver.TCPServer(("", PORT), CustomHTTPRequestHandler) as httpd:
+    with socketserver.TCPServer(("0.0.0.0", PORT), CustomHTTPRequestHandler) as httpd:
         try:
             # Try to open browser automatically
             webbrowser.open(f'http://localhost:{PORT}')

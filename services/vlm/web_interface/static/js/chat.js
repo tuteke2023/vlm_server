@@ -5,7 +5,12 @@
 
 class VLMChat {
     constructor() {
-        this.serverUrl = 'http://localhost:8000';
+        // Dynamically determine server URL based on current location
+        const currentHost = window.location.hostname;
+        this.serverUrl = currentHost === 'localhost' || currentHost === '127.0.0.1' 
+            ? 'http://localhost:8000'
+            : `http://${currentHost}:8000`;
+            
         this.messages = [];
         this.uploadedFiles = new Map();
         this.isProcessing = false;
