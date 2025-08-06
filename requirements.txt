@@ -19,6 +19,10 @@ Pillow>=10.0.0
 requests>=2.31.0
 PyMuPDF>=1.23.0  # For PDF to image conversion
 
+# External API providers
+openai>=1.0.0
+python-dotenv>=1.0.0
+
 # Optional but recommended for better performance
 ninja  # For faster model compilation
 flash-attn>=2.0.0  # For faster attention (requires CUDA)

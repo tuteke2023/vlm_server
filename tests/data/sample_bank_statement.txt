@@ -1,0 +1,26 @@
+BANK OF EXAMPLE
+Account Statement
+
+Account Number: ****1234
+Statement Period: January 1-31, 2025
+
+Date | Description | Withdrawals | Deposits | Balance
+------|-------------|-------------|----------|----------
+01/01/2025 | Beginning Balance | | | 2,000.00
+01/05/2025 | WALMART SUPERCENTER | 125.50 | | 1,874.50
+01/10/2025 | DIRECT DEPOSIT - PAYROLL | | 3,000.00 | 4,874.50
+01/12/2025 | SHELL GAS STATION #1234 | 75.25 | | 4,799.25
+01/15/2025 | ONLINE TRANSFER TO SAVINGS | 500.00 | | 4,299.25
+01/16/2025 | STARBUCKS COFFEE | 6.75 | | 4,292.50
+01/18/2025 | ATM WITHDRAWAL | 200.00 | | 4,092.50
+01/20/2025 | NETFLIX SUBSCRIPTION | 15.99 | | 4,076.51
+01/22/2025 | AMAZON MARKETPLACE | 89.99 | | 3,986.52
+01/25/2025 | DIRECT DEPOSIT - PAYROLL | | 3,000.00 | 6,986.52
+01/26/2025 | UTILITY BILL PAYMENT | 156.78 | | 6,829.74
+01/28/2025 | GROCERY STORE #5678 | 234.56 | | 6,595.18
+01/30/2025 | RESTAURANT XYZ | 45.80 | | 6,549.38
+01/31/2025 | SERVICE FEE | 12.00 | | 6,537.38
+
+Total Withdrawals: $1,462.62
+Total Deposits: $6,000.00
+Ending Balance: $6,537.38

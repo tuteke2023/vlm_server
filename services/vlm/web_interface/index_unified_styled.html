@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VLM Server - Document Intelligence Platform</title>
+    <link rel="stylesheet" href="static/css/style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-brain"></i>
+                    <h1>VLM Server</h1>
+                    <span class="subtitle">Unified Intelligence Platform</span>
+                </div>
+                <div class="nav-links">
+                    <a href="index_unified_styled.html" class="nav-link active">
+                        <i class="fas fa-layer-group"></i> Unified Tools
+                    </a>
+                    <a href="index.html" class="nav-link">
+                        <i class="fas fa-tools"></i> Legacy Tools
+                    </a>
+                    <a href="chat.html" class="nav-link">
+                        <i class="fas fa-comments"></i> Chat
+                    </a>
+                    <a href="#" id="audioTranscriptionLink" class="nav-link" target="_blank">
+                        <i class="fas fa-microphone"></i> Audio Transcription
+                    </a>
+                </div>
+                <div class="server-status">
+                    <div class="provider-selector">
+                        <label for="providerSelect">LLM Provider:</label>
+                        <select id="providerSelect">
+                            <option value="local">Local VLM</option>
+                            <option value="openai">OpenAI GPT-4V</option>
+                        </select>
+                        <div class="provider-indicator local" id="providerIndicator">
+                            <i class="fas fa-lock"></i>
+                            <span>Local</span>
+                        </div>
+                    </div>
+                    <div class="status-indicator" id="serverStatus">
+                        <span class="status-dot"></span>
+                        <span class="status-text">Connecting...</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <!-- Sidebar -->
+            <aside class="sidebar">
+                <nav class="nav-menu">
+                    <h3>Analysis Modes</h3>
+                    <ul class="menu-items">
+                        <li class="menu-item active" data-mode="bank-extraction">
+                            <i class="fas fa-credit-card"></i>
+                            <span>Bank Statements</span>
+                        </li>
+                        <li class="menu-item" data-mode="general">
+                            <i class="fas fa-image"></i>
+                            <span>General Analysis</span>
+                        </li>
+                        <li class="menu-item" data-mode="document">
+                            <i class="fas fa-file-alt"></i>
+                            <span>Document Summary</span>
+                        </li>
+                        <li class="menu-item" data-mode="technical">
+                            <i class="fas fa-code"></i>
+                            <span>Technical Analysis</span>
+                        </li>
+                        <li class="menu-item" data-mode="custom">
+                            <i class="fas fa-question-circle"></i>
+                            <span>Custom Query</span>
+                        </li>
+                    </ul>
+                </nav>
+
+                <!-- VRAM & Model Settings -->
+                <div class="model-settings">
+                    <h3>System Status</h3>
+                    
+                    <!-- VRAM Status Display -->
+                    <div class="vram-status-panel">
+                        <div class="status-header">
+                            <i class="fas fa-microchip"></i>
+                            <span>VRAM Status</span>
+                        </div>
+                        <div class="vram-info">
+                            <div class="vram-bar">
+                                <div class="vram-fill" id="vramBar"></div>
+                                <div class="vram-text" id="vramText">--</div>
+                            </div>
+                            <div class="vram-details">
+                                <span id="vramDetails">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Provider Status -->
+                    <div class="provider-status-panel">
+                        <div class="status-header">
+                            <i class="fas fa-server"></i>
+                            <span>Active Provider</span>
+                        </div>
+                        <div id="providerStatus" class="provider-status-details">
+                            <div class="provider-info">
+                                <span id="activeProviderName">Local VLM</span>
+                                <small id="activeProviderModel">Loading...</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="quick-actions">
+                    <h3>Quick Actions</h3>
+                    <button class="action-btn" id="clearAllBtn">
+                        <i class="fas fa-broom"></i>
+                        Clear All
+                    </button>
+                    <button class="action-btn" id="exportResultsBtn" style="display: none;">
+                        <i class="fas fa-download"></i>
+                        Export Results
+                    </button>
+                </div>
+            </aside>
+
+            <!-- Content Area -->
+            <div class="content-area">
+                <!-- Dynamic content area for all modes -->
+                <div class="unified-panel">
+                    <div class="panel-header" id="panelHeader">
+                        <h2><i class="fas fa-credit-card" id="modeIcon"></i> <span id="modeTitle">Bank Statement Extraction</span></h2>
+                        <p id="modeDescription">Upload bank statements to extract and analyze transaction data</p>
+                    </div>
+                    
+                    <!-- Upload Section -->
+                    <div class="upload-section">
+                        <div class="upload-area" id="unifiedUploadArea">
+                            <div class="upload-content">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                                <h3>Drop image here or click to browse</h3>
+                                <p>Supports PNG, JPG, JPEG files</p>
+                                <input type="file" id="fileInput" accept="image/*" hidden>
+                            </div>
+                        </div>
+                        
+                        <!-- Image Preview (hidden initially) -->
+                        <div class="image-preview-section" id="imagePreview" style="display: none;">
+                            <div class="preview-header">
+                                <h4>Selected Image</h4>
+                                <button class="btn-sm" id="changeImageBtn">
+                                    <i class="fas fa-exchange-alt"></i> Change
+                                </button>
+                            </div>
+                            <div class="preview-container">
+                                <img id="imagePreviewImg" alt="Preview">
+                            </div>
+                        </div>
+                        
+                        <!-- Dynamic Options Section -->
+                        <div class="processing-options" id="processingOptions">
+                            <!-- Options will be dynamically inserted based on mode -->
+                        </div>
+                        
+                        <!-- Prompt Section -->
+                        <div class="prompt-section">
+                            <h4>Analysis Prompt</h4>
+                            <div class="prompt-container">
+                                <textarea id="promptInput" rows="3" placeholder="Additional instructions or questions..."></textarea>
+                                <div class="prompt-suggestions" id="promptSuggestions">
+                                    <!-- Dynamic suggestions based on mode -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="action-buttons">
+                            <button class="btn btn-primary btn-lg" id="analyzeBtn" disabled>
+                                <i class="fas fa-play-circle"></i>
+                                <span>Analyze Image</span>
+                            </button>
+                            <div class="export-buttons" id="exportButtons" style="display: none;">
+                                <button class="btn btn-secondary" id="exportCsvBtn">
+                                    <i class="fas fa-file-csv"></i> Export CSV
+                                </button>
+                                <button class="btn btn-secondary" id="exportJsonBtn">
+                                    <i class="fas fa-file-code"></i> Export JSON
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Results Section -->
+                    <div class="results-section" id="resultsSection" style="display: none;">
+                        <div class="results-header">
+                            <h3>Analysis Results</h3>
+                            <button class="btn-sm" id="clearResultsBtn">
+                                <i class="fas fa-times"></i> Clear
+                            </button>
+                        </div>
+                        <div class="results-content" id="resultsContent">
+                            <!-- Results will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Privacy Warning Modal -->
+    <div id="privacyWarningModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-exclamation-triangle"></i> Privacy Notice</h2>
+            </div>
+            <div class="modal-body">
+                <p><strong>You are about to switch to OpenAI GPT-4V.</strong></p>
+                <p>Please be aware of the following privacy implications:</p>
+                <ul>
+                    <li>Your images will be sent to OpenAI's servers</li>
+                    <li>OpenAI may process and store your data</li>
+                    <li>Do NOT upload sensitive or confidential documents</li>
+                    <li>Bank statements and personal information should be processed locally</li>
+                </ul>
+                <p style="color: #e53e3e; font-weight: 500; margin-top: 1rem;">
+                    ⚠️ For sensitive data, please use the Local VLM option instead.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary cancel-btn">Stay with Local VLM</button>
+                <button class="btn btn-primary proceed-btn" style="background: #e53e3e;">I Understand the Risks, Proceed</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fallback Confirmation Modal -->
+    <div id="fallbackConfirmModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-sync-alt"></i> Provider Error</h2>
+            </div>
+            <div class="modal-body">
+                <p>OpenAI API request failed. Would you like to use the local VLM instead?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary no-btn">No, Cancel</button>
+                <button class="btn btn-primary yes-btn">Yes, Use Local VLM</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Messages -->
+    <div id="statusMessage" class="status-message"></div>
+
+    <!-- Scripts -->
+    <script src="static/js/unified_api.js"></script>
+    <script src="static/js/app_unified_styled.js"></script>
+</body>
+</html>

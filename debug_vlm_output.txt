@@ -1,0 +1,13 @@
+| Date       | Description                                | Ref. | Withdrawals | Deposits | Balance |
+|------------|--------------------------------------------|-----|------------|---------|---------|
+| 01 Apr 2025| Direct Credit 400937 DB RESULTS              | DBMAR25| 17,765.00   |         | 17,765.00|
+| 04 Apr 2025| Transfer to xx5330 CommBank app Loan        | Loan | 8,000.00    |         | 9,765.00 |
+| 05 Apr 2025| Transfer to CBA A/c CommBank app              | A/c | 9,765.00    |         | 0.00    |
+| 22 Apr 2025| Transfer from CommBank app BAS Q125 Acct Cost| Acct | 220.00     |         | 220.00  |
+| 22 Apr 2025| TTACCOUNTANCY                               |       | 220.00     |         | 0.00    |
+| 02 May 2025| Direct Credit 400937 DB RESULTS              | DBAPR25| 14,960.00   |         | 14,960.00|
+| 02 May 2025| Transfer to xx5330 CommBank app Loan        | Loan | 8,000.00    |         | 6,960.00 |
+| 02 May 2025| Transfer to CBA A/c CommBank app              | A/c | 6,960.00    |         | 0.00    |
+| 07 May 2025| Transfer from CommBank app BASQ125           | A/c | 2,890.00    |         | 2,890.00 |
+| 07 May 2025| TAX OFFICE PAYMENTS CommBank app BPAY 7      | BPAY | 2,890.00    |         | 0.00    |
+|

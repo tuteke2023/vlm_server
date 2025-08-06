@@ -1,9 +1,6 @@
-gio: http://localhost:8080: Operation not supported
-127.0.0.1 - - [02/Aug/2025 16:20:47] "GET / HTTP/1.1" 200 -
-127.0.0.1 - - [02/Aug/2025 16:22:18] "GET / HTTP/1.1" 200 -
-127.0.0.1 - - [02/Aug/2025 16:22:18] "GET /static/css/style.css HTTP/1.1" 200 -
-127.0.0.1 - - [02/Aug/2025 16:22:19] "GET /static/js/app.js HTTP/1.1" 200 -
-127.0.0.1 - - [02/Aug/2025 16:22:22] code 404, message File not found
-127.0.0.1 - - [02/Aug/2025 16:22:22] "GET /favicon.ico HTTP/1.1" 404 -
-127.0.0.1 - - [02/Aug/2025 16:30:33] "GET / HTTP/1.1" 200 -
-127.0.0.1 - - [02/Aug/2025 16:36:31] "GET /quick_test.html HTTP/1.1" 200 -
+127.0.0.1 - - [04/Aug/2025 00:12:06] "GET /bank_processor.html HTTP/1.1" 304 -
+127.0.0.1 - - [04/Aug/2025 00:12:06] "GET /static/js/bank_processor.js HTTP/1.1" 304 -
+127.0.0.1 - - [04/Aug/2025 00:12:07] "GET /static/js/bank_processor_enhanced.js HTTP/1.1" 304 -
+127.0.0.1 - - [04/Aug/2025 00:12:07] code 404, message File not found
+127.0.0.1 - - [04/Aug/2025 00:12:07] "GET /static/js/bank_processor_langchain.js HTTP/1.1" 404 -
+127.0.0.1 - - [04/Aug/2025 00:12:07] "GET /transaction_corrections_db.json HTTP/1.1" 304 -

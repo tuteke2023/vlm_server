@@ -39,6 +39,15 @@ def parse_bank_table_to_json(table_text: str) -> Dict:
         if not any(char.isdigit() for char in date_str):
             continue
             
+        # Skip non-transaction rows
+        desc_lower = description.lower()
+        skip_keywords = ['transaction type', 'staff assisted', 'cheques written', 
+                        'cheque deposit', 'over the counter', 'quick deposit',
+                        'account fee', 'paper statement fee', 'total']
+        
+        if any(keyword in desc_lower for keyword in skip_keywords):
+            continue
+            
         # Find the balance - it's usually the last numeric column
         balance_str = ""
         for j in range(len(parts)-1, 1, -1):

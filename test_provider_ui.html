@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Provider Selector Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .provider-info {
+            background: #e8f0fe;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #5a67d8;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        .warning { color: orange; }
+        select {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            margin: 0 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>VLM Server Provider Test</h1>
+        
+        <div class="provider-info">
+            <h2>Provider Status</h2>
+            <p>Current Provider: <strong id="currentProvider">Loading...</strong></p>
+            <p>Available Providers:</p>
+            <ul id="availableProviders">
+                <li>Loading...</li>
+            </ul>
+            
+            <div style="margin-top: 20px;">
+                <label>Switch Provider:</label>
+                <select id="providerSelect">
+                    <option value="local">Local VLM</option>
+                    <option value="openai">OpenAI GPT-4</option>
+                </select>
+                <button onclick="switchProvider()">Switch</button>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Test Text Generation</h3>
+            <input type="text" id="testPrompt" value="What is 2+2?" style="width: 300px; padding: 8px;">
+            <button onclick="testGeneration()">Test</button>
+            <div id="testResult" style="margin-top: 10px;"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Test Bank Statement (Sensitive Content)</h3>
+            <button onclick="testSensitive()">Test Sensitive Content Detection</button>
+            <div id="sensitiveResult" style="margin-top: 10px;"></div>
+        </div>
+        
+        <div id="log" style="margin-top: 30px; padding: 20px; background: #f5f5f5; border-radius: 8px; font-family: monospace; font-size: 12px;">
+            <h3>Activity Log</h3>
+            <div id="logContent"></div>
+        </div>
+    </div>
+    
+    <script>
+        const serverUrl = 'http://localhost:8000';
+        
+        function log(message, type = 'info') {
+            const logContent = document.getElementById('logContent');
+            const entry = document.createElement('div');
+            entry.className = type;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logContent.appendChild(entry);
+        }
+        
+        async function loadProviders() {
+            try {
+                const response = await fetch(`${serverUrl}/api/v1/providers`);
+                const data = await response.json();
+                
+                document.getElementById('currentProvider').textContent = data.current_provider;
+                document.getElementById('providerSelect').value = data.current_provider;
+                
+                const list = document.getElementById('availableProviders');
+                list.innerHTML = '';
+                for (const [provider, available] of Object.entries(data.available_providers)) {
+                    const li = document.createElement('li');
+                    li.textContent = `${provider}: ${available ? 'Available ✓' : 'Not Available ✗'}`;
+                    li.className = available ? 'success' : 'error';
+                    list.appendChild(li);
+                }
+                
+                log('Loaded provider information', 'success');
+            } catch (error) {
+                log(`Failed to load providers: ${error.message}`, 'error');
+            }
+        }
+        
+        async function switchProvider() {
+            const provider = document.getElementById('providerSelect').value;
+            try {
+                const response = await fetch(`${serverUrl}/api/v1/set_provider`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({provider: provider})
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    log(`Switched to ${provider} provider`, 'success');
+                    loadProviders();
+                } else {
+                    const error = await response.json();
+                    log(`Failed to switch: ${error.detail}`, 'error');
+                }
+            } catch (error) {
+                log(`Error switching provider: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testGeneration() {
+            const prompt = document.getElementById('testPrompt').value;
+            const resultDiv = document.getElementById('testResult');
+            
+            resultDiv.innerHTML = 'Processing...';
+            log(`Testing generation with prompt: "${prompt}"`);
+            
+            try {
+                const response = await fetch(`${serverUrl}/api/v1/generate`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        messages: [{role: 'user', content: prompt}],
+                        max_new_tokens: 50
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success">Response: ${result.response}</div>
+                        ${result.metadata ? `
+                            <div>Provider: ${result.metadata.provider || 'unknown'}</div>
+                            ${result.metadata.estimated_cost ? `<div>Cost: ${result.metadata.estimated_cost}</div>` : ''}
+                        ` : ''}
+                    `;
+                    log('Generation successful', 'success');
+                } else {
+                    resultDiv.innerHTML = `<div class="error">Error: ${JSON.stringify(result)}</div>`;
+                    log('Generation failed', 'error');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+                log(`Generation error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testSensitive() {
+            const resultDiv = document.getElementById('sensitiveResult');
+            resultDiv.innerHTML = 'Testing sensitive content detection...';
+            
+            try {
+                const response = await fetch(`${serverUrl}/api/v1/generate`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        messages: [{
+                            role: 'user',
+                            content: 'Extract data from this bank statement with account number 123456789'
+                        }],
+                        max_new_tokens: 100
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.metadata) {
+                    const sensitivity = result.metadata.sensitivity_check;
+                    if (sensitivity) {
+                        resultDiv.innerHTML = `
+                            <div class="warning">Sensitive content detected!</div>
+                            <div>Has financial data: ${sensitivity.has_financial}</div>
+                            <div>Has account info: ${sensitivity.has_account_info}</div>
+                            <div>Provider used: ${result.metadata.provider}</div>
+                        `;
+                        log('Sensitive content detection working', 'warning');
+                    } else {
+                        resultDiv.innerHTML = '<div>No sensitive content detected</div>';
+                        log('No sensitive content detected');
+                    }
+                } else {
+                    resultDiv.innerHTML = '<div class="error">Test failed</div>';
+                    log('Sensitive content test failed', 'error');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+                log(`Sensitive test error: ${error.message}`, 'error');
+            }
+        }
+        
+        // Load providers on page load
+        window.onload = loadProviders;
+    </script>
+</body>
+</html>

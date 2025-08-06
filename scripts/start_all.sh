@@ -21,17 +21,17 @@ nohup "$SCRIPT_DIR/start_audio.sh" > "$SCRIPT_DIR/../audio_service.log" 2>&1 &
 AUDIO_PID=$!
 echo "Audio service started with PID: $AUDIO_PID"
 
-# Start web server
+# Start web server (accessible from LAN)
 echo "Starting web interface..."
 cd "$SCRIPT_DIR/../services/vlm/web_interface" || exit
-nohup python3 -m http.server 8080 > "$SCRIPT_DIR/../web_interface.log" 2>&1 &
+nohup python3 -m http.server 8080 --bind 0.0.0.0 > "$SCRIPT_DIR/../web_interface.log" 2>&1 &
 WEB_PID=$!
 echo "Web interface started with PID: $WEB_PID"
 
-# Start audio web interface
+# Start audio web interface (accessible from LAN)
 echo "Starting audio web interface..."
 cd "$SCRIPT_DIR/../services/audio/web_interface" || exit
-nohup python3 -m http.server 8002 > "$SCRIPT_DIR/../audio_web_interface.log" 2>&1 &
+nohup python3 -m http.server 8002 --bind 0.0.0.0 > "$SCRIPT_DIR/../audio_web_interface.log" 2>&1 &
 AUDIO_WEB_PID=$!
 echo "Audio web interface started with PID: $AUDIO_WEB_PID"
 

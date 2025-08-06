@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VLM Server - Interface Comparison</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            margin: 0;
+            padding: 2rem;
+            background: #f5f7fa;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 3rem;
+        }
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+        .interface-card {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+        .interface-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        }
+        .interface-card h2 {
+            color: #667eea;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .interface-card h3 {
+            color: #444;
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+        .feature-list li {
+            padding: 0.5rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+        .feature-list li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #51cf66;
+            font-weight: bold;
+        }
+        .btn {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            margin-top: 1rem;
+            transition: all 0.3s ease;
+        }
+        .btn:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+        }
+        .recommended {
+            position: relative;
+        }
+        .recommended:before {
+            content: "RECOMMENDED";
+            position: absolute;
+            top: -1rem;
+            right: -1rem;
+            background: #51cf66;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+        .status {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            margin-left: 0.5rem;
+        }
+        .status.production {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        .status.new {
+            background: #e8f5e9;
+            color: #388e3c;
+        }
+        .status.legacy {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1><i class="fas fa-brain"></i> VLM Server Interface Options</h1>
+        
+        <div class="comparison-grid">
+            <!-- Unified Styled Interface -->
+            <div class="interface-card recommended">
+                <h2>
+                    <i class="fas fa-layer-group"></i>
+                    Unified Interface (Styled)
+                    <span class="status new">NEW</span>
+                </h2>
+                <p>Beautiful, modern interface combining all features in one place.</p>
+                
+                <h3>Features</h3>
+                <ul class="feature-list">
+                    <li>Beautiful block-based design</li>
+                    <li>All processing modes in one interface</li>
+                    <li>Sidebar navigation</li>
+                    <li>Real-time VRAM monitoring</li>
+                    <li>Privacy-aware provider switching</li>
+                    <li>Contextual export options</li>
+                    <li>Drag-and-drop uploads</li>
+                    <li>Responsive design</li>
+                </ul>
+                
+                <h3>Best For</h3>
+                <p>Users who want a modern, all-in-one experience with the best UI/UX.</p>
+                
+                <a href="index_unified_styled.html" class="btn">
+                    <i class="fas fa-rocket"></i> Launch Unified Interface
+                </a>
+            </div>
+            
+            <!-- Original Interface -->
+            <div class="interface-card">
+                <h2>
+                    <i class="fas fa-tools"></i>
+                    Original Interface
+                    <span class="status production">STABLE</span>
+                </h2>
+                <p>The classic interface with separate tools and dedicated pages.</p>
+                
+                <h3>Features</h3>
+                <ul class="feature-list">
+                    <li>Familiar layout</li>
+                    <li>Separate tools for each function</li>
+                    <li>Dedicated bank processor page</li>
+                    <li>Traditional navigation</li>
+                    <li>Proven stability</li>
+                    <li>Model switching controls</li>
+                    <li>VRAM management</li>
+                </ul>
+                
+                <h3>Best For</h3>
+                <p>Users comfortable with the existing workflow and separate tool pages.</p>
+                
+                <a href="index.html" class="btn">
+                    <i class="fas fa-tools"></i> Use Original Interface
+                </a>
+            </div>
+            
+            <!-- Basic Unified -->
+            <div class="interface-card">
+                <h2>
+                    <i class="fas fa-code"></i>
+                    Basic Unified
+                    <span class="status legacy">PROTOTYPE</span>
+                </h2>
+                <p>The initial unified interface prototype with basic functionality.</p>
+                
+                <h3>Features</h3>
+                <ul class="feature-list">
+                    <li>Minimal design</li>
+                    <li>Core functionality only</li>
+                    <li>Simple mode switching</li>
+                    <li>Basic API integration</li>
+                    <li>Lightweight</li>
+                </ul>
+                
+                <h3>Best For</h3>
+                <p>Developers testing the unified API or users who prefer minimal interfaces.</p>
+                
+                <a href="index_unified.html" class="btn">
+                    <i class="fas fa-code"></i> Try Basic Version
+                </a>
+            </div>
+        </div>
+        
+        <div style="text-align: center; padding: 2rem; background: white; border-radius: 12px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);">
+            <h2>Quick Links</h2>
+            <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1rem;">
+                <a href="chat.html" class="btn">
+                    <i class="fas fa-comments"></i> Chat Interface
+                </a>
+                <a href="bank_processor.html" class="btn">
+                    <i class="fas fa-file-invoice-dollar"></i> Bank Processor
+                </a>
+                <a href="http://localhost:8001" class="btn" target="_blank">
+                    <i class="fas fa-microphone"></i> Audio Transcription
+                </a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

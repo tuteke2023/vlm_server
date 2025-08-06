@@ -1,6 +1,6 @@
 # VLM Server Web Interface
 
-A modern, responsive web interface for the VLM Server that provides document intelligence capabilities through an intuitive user interface.
+A modern, unified web interface for the VLM Server that provides document intelligence capabilities through an intuitive user interface with support for multiple LLM providers (Local VLM and OpenAI GPT-4V).
 
 ## Features
 

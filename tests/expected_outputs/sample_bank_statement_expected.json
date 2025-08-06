@@ -1,0 +1,115 @@
+{
+  "account_number": "****1234",
+  "statement_period": "January 1-31, 2025",
+  "opening_balance": 2000.00,
+  "closing_balance": 6537.38,
+  "total_debits": 1462.62,
+  "total_credits": 6000.00,
+  "transactions": [
+    {
+      "date": "01/05/2025",
+      "description": "WALMART SUPERCENTER",
+      "category": "Groceries",
+      "debit": 125.50,
+      "credit": 0,
+      "balance": 1874.50
+    },
+    {
+      "date": "01/10/2025",
+      "description": "DIRECT DEPOSIT - PAYROLL",
+      "category": "Income",
+      "debit": 0,
+      "credit": 3000.00,
+      "balance": 4874.50
+    },
+    {
+      "date": "01/12/2025",
+      "description": "SHELL GAS STATION #1234",
+      "category": "Transportation",
+      "debit": 75.25,
+      "credit": 0,
+      "balance": 4799.25
+    },
+    {
+      "date": "01/15/2025",
+      "description": "ONLINE TRANSFER TO SAVINGS",
+      "category": "Transfer",
+      "debit": 500.00,
+      "credit": 0,
+      "balance": 4299.25
+    },
+    {
+      "date": "01/16/2025",
+      "description": "STARBUCKS COFFEE",
+      "category": "Dining",
+      "debit": 6.75,
+      "credit": 0,
+      "balance": 4292.50
+    },
+    {
+      "date": "01/18/2025",
+      "description": "ATM WITHDRAWAL",
+      "category": "Cash",
+      "debit": 200.00,
+      "credit": 0,
+      "balance": 4092.50
+    },
+    {
+      "date": "01/20/2025",
+      "description": "NETFLIX SUBSCRIPTION",
+      "category": "Entertainment",
+      "debit": 15.99,
+      "credit": 0,
+      "balance": 4076.51
+    },
+    {
+      "date": "01/22/2025",
+      "description": "AMAZON MARKETPLACE",
+      "category": "Shopping",
+      "debit": 89.99,
+      "credit": 0,
+      "balance": 3986.52
+    },
+    {
+      "date": "01/25/2025",
+      "description": "DIRECT DEPOSIT - PAYROLL",
+      "category": "Income",
+      "debit": 0,
+      "credit": 3000.00,
+      "balance": 6986.52
+    },
+    {
+      "date": "01/26/2025",
+      "description": "UTILITY BILL PAYMENT",
+      "category": "Utilities",
+      "debit": 156.78,
+      "credit": 0,
+      "balance": 6829.74
+    },
+    {
+      "date": "01/28/2025",
+      "description": "GROCERY STORE #5678",
+      "category": "Groceries",
+      "debit": 234.56,
+      "credit": 0,
+      "balance": 6595.18
+    },
+    {
+      "date": "01/30/2025",
+      "description": "RESTAURANT XYZ",
+      "category": "Dining",
+      "debit": 45.80,
+      "credit": 0,
+      "balance": 6549.38
+    },
+    {
+      "date": "01/31/2025",
+      "description": "SERVICE FEE",
+      "category": "Banking",
+      "debit": 12.00,
+      "credit": 0,
+      "balance": 6537.38
+    }
+  ],
+  "transaction_count": 13
+}

@@ -12,6 +12,7 @@ from typing import List, Dict, Optional, Union
 from datetime import datetime
 from contextlib import asynccontextmanager
 from pathlib import Path
+from dotenv import load_dotenv
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse
@@ -23,6 +24,14 @@ from PIL import Image
 import requests
 import uvicorn
 from bank_parser_v3 import BankStatementParser, parse_bank_statement_to_csv
+from openai_provider import OpenAIProvider
+from unified_llm_provider import UnifiedLLMProvider
+from langchain_llm import UnifiedLangChainLLM
+from langchain_extractor_optimized import LangChainExtractorOptimized as LangChainExtractor
+from response_cache import get_cache
+
+# Load environment variables
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -80,11 +89,18 @@ class GenerateRequest(BaseModel):
     top_p: Optional[float] = Field(0.9, description="Top-p sampling parameter")
     quantization: Optional[str] = Field(None, description="Quantization level: '4bit', '8bit', or None")
     enable_safety_check: Optional[bool] = Field(True, description="Enable VRAM safety check before processing")
+    metadata: Optional[Dict] = Field(None, description="Additional metadata for the request")
     
+class Usage(BaseModel):
+    prompt_tokens: int = Field(..., description="Number of prompt tokens")
+    completion_tokens: int = Field(..., description="Number of completion tokens") 
+    total_tokens: int = Field(..., description="Total number of tokens")
+
 class GenerateResponse(BaseModel):
     response: str = Field(..., description="Generated response")
     usage: Dict = Field(..., description="Token usage statistics")
     processing_time: float = Field(..., description="Processing time in seconds")
+    metadata: Optional[Dict] = Field(None, description="Additional metadata about the response")
 
 class VRAMStatus(BaseModel):
     allocated_gb: float
@@ -120,6 +136,33 @@ class VLMServer:
         gc.set_threshold(700, 10, 10)  # More aggressive GC
         self.current_quantization = "none"
         self.current_model = Config.MODEL_NAME
+        
+        # Provider management
+        self.current_provider = os.getenv("DEFAULT_LLM_PROVIDER", "local")
+        self.openai_provider = None
+        
+        # Initialize OpenAI provider if API key exists
+        if os.getenv("OPENAI_API_KEY"):
+            try:
+                self.openai_provider = OpenAIProvider()
+                logger.info("OpenAI provider initialized successfully")
+            except Exception as e:
+                logger.warning(f"Failed to initialize OpenAI provider: {e}")
+                self.openai_provider = None
+        
+        # Initialize unified provider (Increment 2: Local VLM and OpenAI)
+        self.unified_provider = UnifiedLLMProvider(
+            vlm_server=self,
+            openai_provider=self.openai_provider
+        )
+        
+        # Initialize LangChain components (Increment 5)
+        self.langchain_llm = UnifiedLangChainLLM(
+            unified_provider=self.unified_provider,
+            temperature=0.1,
+            max_tokens=4000
+        )
+        self.langchain_extractor = LangChainExtractor(self.langchain_llm)
         
     async def initialize(self, quantization: Optional[str] = None, model_name: Optional[str] = None):
         """Initialize the model and processor with optional quantization and model selection"""
@@ -672,10 +715,107 @@ class VLMServer:
             
         return formatted_messages
         
+    def set_provider(self, provider: str) -> Dict:
+        """Switch between local and OpenAI providers"""
+        if provider not in ["local", "openai"]:
+            raise ValueError("Provider must be 'local' or 'openai'")
+        
+        if provider == "openai" and not self.openai_provider:
+            raise ValueError("OpenAI provider not available. Check API key configuration.")
+        
+        self.current_provider = provider
+        logger.info(f"Switched to {provider} provider")
+        
+        return {
+            "status": "success",
+            "provider": provider,
+            "message": f"Switched to {provider} provider"
+        }
+    
+    def get_current_provider(self) -> Dict:
+        """Get current provider information"""
+        return {
+            "current_provider": self.current_provider,
+            "available_providers": {
+                "local": self.model is not None,
+                "openai": self.openai_provider is not None
+            }
+        }
+    
     async def generate(self, request: GenerateRequest) -> GenerateResponse:
         """Generate response for the given messages"""
         start_time = datetime.now()
         
+        # Use OpenAI provider if selected and available
+        if self.current_provider == "openai" and self.openai_provider:
+            try:
+                # Check for sensitive content
+                sensitivity_check = self.openai_provider.check_sensitive_content(
+                    [{"role": msg.role, "content": msg.content} for msg in request.messages]
+                )
+                
+                # Log warning if sensitive content detected
+                if sensitivity_check['is_sensitive']:
+                    logger.warning(f"Sensitive content detected: {sensitivity_check}")
+                    
+                    # Check if external API is allowed for sensitive docs
+                    if os.getenv("ALLOW_EXTERNAL_API_FOR_SENSITIVE_DOCS", "false").lower() != "true":
+                        # Include sensitivity info in response for frontend handling
+                        request.metadata = request.metadata or {}
+                        request.metadata['sensitivity_warning'] = sensitivity_check
+                
+                # Convert messages to dict format for OpenAI
+                messages_dict = []
+                for msg in request.messages:
+                    msg_dict = {"role": msg.role}
+                    if isinstance(msg.content, str):
+                        msg_dict["content"] = msg.content
+                    else:
+                        # Convert content items to dict
+                        content_list = []
+                        for item in msg.content:
+                            if item.type == "text":
+                                content_list.append({"type": "text", "text": item.text})
+                            elif item.type == "image":
+                                content_list.append({"type": "image", "image": item.image})
+                        msg_dict["content"] = content_list
+                    messages_dict.append(msg_dict)
+                
+                # Call OpenAI API
+                result = await self.openai_provider.generate(
+                    messages=messages_dict,
+                    max_tokens=request.max_new_tokens,
+                    temperature=request.temperature
+                )
+                
+                # Add cost estimate
+                cost = self.openai_provider.get_cost_estimate(
+                    result['usage']['prompt_tokens'],
+                    result['usage']['completion_tokens']
+                )
+                
+                return GenerateResponse(
+                    response=result['response'],
+                    usage=result['usage'],  # Already a dict from OpenAI provider
+                    processing_time=result['processing_time'],
+                    metadata={
+                        "provider": "openai",
+                        "model": result['model'],
+                        "estimated_cost": f"${cost:.4f}",
+                        "sensitivity_check": sensitivity_check if sensitivity_check['is_sensitive'] else None
+                    }
+                )
+                
+            except Exception as e:
+                logger.error(f"OpenAI provider error: {e}")
+                # Fall back to local if configured
+                if os.getenv("FALLBACK_TO_LOCAL_ON_ERROR", "true").lower() == "true":
+                    logger.info("Falling back to local VLM")
+                    self.current_provider = "local"
+                else:
+                    raise
+        
+        # Use local VLM
         async with self.processing_lock:
             try:
                 # VRAM safety check before processing
@@ -831,13 +971,16 @@ async def root():
             "generate": "/api/v1/generate",
             "bank_export": "/api/v1/bank_export",
             "bank_extract_json": "/api/v1/bank_extract_json",
+            "bank_extract_langchain": "/api/v1/bank_extract_langchain",
             "health": "/health",
             "vram_status": "/vram_status",
             "vram_prediction": "/vram_prediction",
             "quantization_options": "/quantization_options",
             "available_models": "/available_models",
             "clear_vram": "/clear_vram",
-            "reload_model": "/reload_model"
+            "reload_model": "/reload_model",
+            "providers": "/api/v1/providers",
+            "set_provider": "/api/v1/set_provider"
         }
     }
 
@@ -880,6 +1023,23 @@ async def get_available_models():
         })
     return models
 
+@app.get("/api/v1/providers")
+async def get_providers():
+    """Get available LLM providers and current selection"""
+    return vlm_server.get_current_provider()
+
+class SetProviderRequest(BaseModel):
+    provider: str = Field(..., description="Provider to switch to: 'local' or 'openai'")
+
+@app.post("/api/v1/set_provider")
+async def set_provider(request: SetProviderRequest):
+    """Switch between local and OpenAI providers"""
+    try:
+        result = vlm_server.set_provider(request.provider)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @app.post("/api/v1/generate", response_model=GenerateResponse)
 async def generate(request: GenerateRequest):
     """Generate response from the VLM model"""
@@ -887,6 +1047,88 @@ async def generate(request: GenerateRequest):
         raise HTTPException(status_code=503, detail="Model not loaded")
         
     return await vlm_server.generate(request)
+
+@app.post("/api/v1/generate_unified")
+async def generate_unified(request: dict):
+    """Test endpoint for unified provider (Increment 2)"""
+    if not vlm_server.unified_provider:
+        raise HTTPException(status_code=503, detail="Unified provider not initialized")
+    
+    if vlm_server.model is None:
+        raise HTTPException(status_code=503, detail="Model not loaded")
+    
+    try:
+        # Extract parameters from request
+        messages = request.get("messages", [])
+        temperature = request.get("temperature", 0.7)
+        max_tokens = request.get("max_tokens", 2048)
+        allow_fallback = request.get("allow_fallback", True)
+        
+        # Check for sensitive content if using OpenAI
+        sensitive_content_warning = None
+        if (vlm_server.unified_provider.get_current_provider() == "openai" and
+            vlm_server.unified_provider.contains_sensitive_content(messages)):
+            sensitive_content_warning = "Sensitive content detected in messages"
+        
+        # Generate using unified provider
+        response = await vlm_server.unified_provider.generate(
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            allow_fallback=allow_fallback
+        )
+        
+        # Return response in expected format
+        result = {
+            "response": response.content,
+            "usage": response.usage,
+            "processing_time": response.processing_time,
+            "metadata": response.metadata
+        }
+        
+        if sensitive_content_warning:
+            result["sensitive_content_warning"] = sensitive_content_warning
+        
+        # Add fallback notification if it occurred
+        if response.metadata.get("fallback_used"):
+            result["fallback_notification"] = {
+                "message": f"OpenAI request failed, using local VLM instead",
+                "original_provider": response.metadata.get("fallback_from"),
+                "fallback_provider": response.metadata.get("provider"),
+                "reason": response.metadata.get("fallback_reason"),
+                "warning": "Output quality may differ from OpenAI"
+            }
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error in unified generation: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/v1/switch_provider_unified")
+async def switch_provider_unified(request: dict):
+    """Switch the unified provider"""
+    if not vlm_server.unified_provider:
+        raise HTTPException(status_code=503, detail="Unified provider not initialized")
+    
+    provider_name = request.get("provider")
+    if not provider_name:
+        raise HTTPException(status_code=400, detail="Provider name required")
+    
+    result = vlm_server.unified_provider.switch_provider(provider_name)
+    
+    if result["status"] == "error":
+        raise HTTPException(status_code=400, detail=result["message"])
+    
+    return result
+
+@app.get("/api/v1/providers_unified")
+async def get_providers_unified():
+    """Get all available providers from unified system"""
+    if not vlm_server.unified_provider:
+        raise HTTPException(status_code=503, detail="Unified provider not initialized")
+    
+    return vlm_server.unified_provider.get_all_providers()
 
 @app.post("/clear_vram")
 async def clear_vram():
@@ -1160,11 +1402,67 @@ Make sure to capture the COMPLETE transaction list from ALL pages.
             "status": "success",
             "data": json_data,
             "transaction_count": json_data["transaction_count"],
-            "processing_time": ai_response.processing_time
+            "processing_time": ai_response.processing_time,
+            "metadata": getattr(ai_response, 'metadata', None) or {
+                "provider": vlm_server.current_provider,
+                "model": vlm_server.current_model if vlm_server.current_provider == "local" else "gpt-4o"
+            }
         }
             
     except Exception as e:
         logger.error(f"Failed to extract bank statement as JSON: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/v1/bank_extract_langchain")
+async def extract_bank_statement_langchain(request: GenerateRequest):
+    """Extract bank statement using LangChain with structured output (Increment 5)"""
+    
+    try:
+        if vlm_server.model is None:
+            raise HTTPException(status_code=503, detail="Model not loaded")
+        
+        # Check cache first (disabled temporarily for testing)
+        # cache = get_cache()
+        # cached_result = cache.get(request.messages, "bank_extract_langchain")
+        # if cached_result is not None:
+        #     return JSONResponse(content=cached_result)
+        
+        # Get the image from the last message
+        image_data = None
+        text_content = ""
+        
+        for msg in request.messages:
+            if isinstance(msg.content, list):
+                for item in msg.content:
+                    if item.type == "image":
+                        image_data = item.image
+                    elif item.type == "text":
+                        text_content = item.text
+            elif isinstance(msg.content, str):
+                text_content = msg.content
+        
+        # Use LangChain extractor
+        result = await vlm_server.langchain_extractor.extract_bank_statement(
+            content=text_content or "Please extract all transactions from this bank statement",
+            image_data=image_data
+        )
+        
+        # Add metadata
+        result["metadata"] = {
+            "provider": vlm_server.unified_provider.get_current_provider(),
+            "model": vlm_server.unified_provider.get_provider_info().get("model", "unknown"),
+            "extraction_method": "langchain_structured"
+        }
+        
+        logger.info(f"LangChain extraction completed: {len(result.get('transactions', []))} transactions")
+        
+        # Cache the result (disabled temporarily)
+        # cache.set(request.messages, "bank_extract_langchain", result)
+        
+        return JSONResponse(content=result)
+        
+    except Exception as e:
+        logger.error(f"Failed to extract bank statement with LangChain: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Error handlers

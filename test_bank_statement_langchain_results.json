@@ -1,0 +1,84 @@
+{
+  "status": "success",
+  "data": {
+    "account_number": "****",
+    "statement_period": "",
+    "opening_balance": 1750.0,
+    "closing_balance": 0.0,
+    "transaction_count": 8,
+    "total_debits": 5201.0,
+    "total_credits": 5400.5,
+    "transactions": [
+      {
+        "date": "04-Apr-25",
+        "description": "Direct Credit 400937 DB RESULTS",
+        "reference": "",
+        "debit": 0,
+        "credit": 1750.0,
+        "balance": 1750.0
+      },
+      {
+        "date": "05-Apr-25",
+        "description": "Transfer to xx5330 CommBank app Loan850.00",
+        "reference": "",
+        "debit": 900.0,
+        "credit": 0,
+        "balance": 900.0
+      },
+      {
+        "date": "05-Apr-25",
+        "description": "Transfer to CBA A/c CommBank app",
+        "reference": "",
+        "debit": 900.0,
+        "credit": 0,
+        "balance": 0.0
+      },
+      {
+        "date": "22-Apr-25",
+        "description": "Transfer from CommBank app BAS Q125",
+        "reference": "",
+        "debit": 0,
+        "credit": 2200.0,
+        "balance": 2200.0
+      },
+      {
+        "date": "22-Apr-25",
+        "description": "TT ACCOUNTANCY",
+        "reference": "",
+        "debit": 2200.0,
+        "credit": 0,
+        "balance": 0.0
+      },
+      {
+        "date": "02-May-25",
+        "description": "Direct Credit 400937 DB RESULTS",
+        "reference": "",
+        "debit": 0,
+        "credit": 1450.5,
+        "balance": 1450.5
+      },
+      {
+        "date": "02-May-25",
+        "description": "Transfer to xx5330 CommBank app Loan850.00",
+        "reference": "",
+        "debit": 600.5,
+        "credit": 0,
+        "balance": 600.5
+      },
+      {
+        "date": "02-May-25",
+        "description": "Transfer to CBA A/c CommBank app",
+        "reference": "",
+        "debit": 600.5,
+        "credit": 0,
+        "balance": 0.0
+      }
+    ]
+  },
+  "transaction_count": 8,
+  "processing_time": 26.86303,
+  "metadata": {
+    "provider": "local",
+    "model": "Qwen/Qwen2.5-VL-3B-Instruct"
+  }
+}

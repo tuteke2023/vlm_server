@@ -1,0 +1,37 @@
+# Test dependencies for VLM server
+
+# Core testing framework
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+pytest-timeout>=2.1.0
+pytest-mock>=3.11.0
+
+# E2E testing
+selenium>=4.15.0
+webdriver-manager>=4.0.0
+
+# Performance testing
+psutil>=5.9.0
+matplotlib>=3.7.0
+numpy>=1.24.0
+
+# Mocking and fixtures
+responses>=0.23.0
+faker>=19.0.0
+
+# Validation and comparison
+jsonschema>=4.19.0
+deepdiff>=6.3.0
+
+# Test reporting
+pytest-html>=3.2.0
+allure-pytest>=2.13.0
+
+# Code quality
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.5.0
+
+# Load testing (optional)
+locust>=2.15.0

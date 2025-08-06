@@ -233,7 +233,11 @@
     </div>
 
     <script>
-        const API_URL = 'http://localhost:8001';
+        // Dynamically determine server URL based on current location
+        const currentHost = window.location.hostname;
+        const API_URL = currentHost === 'localhost' || currentHost === '127.0.0.1' 
+            ? 'http://localhost:8001'
+            : `http://${currentHost}:8001`;
         let currentFile = null;
         let currentTranscription = null;
 

@@ -1,0 +1,124 @@
+{
+  "test_cases": [
+    {
+      "name": "empty_statement",
+      "description": "Bank statement with no transactions",
+      "input": {
+        "account_number": "****5678",
+        "statement_period": "January 2025",
+        "transactions": []
+      },
+      "expected": {
+        "transaction_count": 0,
+        "total_debits": 0,
+        "total_credits": 0
+      }
+    },
+    {
+      "name": "single_transaction",
+      "description": "Statement with only one transaction",
+      "input": {
+        "transactions": [
+          {
+            "date": "01/15/2025",
+            "description": "ATM WITHDRAWAL",
+            "debit": 100.00,
+            "balance": 900.00
+          }
+        ]
+      },
+      "expected": {
+        "transaction_count": 1,
+        "total_debits": 100.00,
+        "total_credits": 0
+      }
+    },
+    {
+      "name": "mixed_date_formats",
+      "description": "Transactions with various date formats",
+      "input": {
+        "transactions": [
+          {"date": "01/15/2025", "description": "US Format"},
+          {"date": "15/01/2025", "description": "EU Format"},
+          {"date": "2025-01-15", "description": "ISO Format"},
+          {"date": "Jan 15, 2025", "description": "Text Format"}
+        ]
+      },
+      "expected": {
+        "all_dates_normalized": true,
+        "date_format": "MM/DD/YYYY"
+      }
+    },
+    {
+      "name": "special_characters",
+      "description": "Descriptions with special characters",
+      "input": {
+        "transactions": [
+          {"description": "McDonald's Restaurant"},
+          {"description": "AT&T Payment"},
+          {"description": "7-Eleven #1234"},
+          {"description": "Café Français"},
+          {"description": "Payment - Ref: ABC/123"}
+        ]
+      },
+      "expected": {
+        "all_descriptions_preserved": true
+      }
+    },
+    {
+      "name": "large_amounts",
+      "description": "Transactions with large amounts",
+      "input": {
+        "transactions": [
+          {
+            "date": "01/01/2025",
+            "description": "WIRE TRANSFER",
+            "credit": 1000000.00,
+            "balance": 1000000.00
+          },
+          {
+            "date": "01/02/2025",
+            "description": "REAL ESTATE PURCHASE",
+            "debit": 750000.00,
+            "balance": 250000.00
+          }
+        ]
+      },
+      "expected": {
+        "amounts_handled_correctly": true,
+        "no_precision_loss": true
+      }
+    },
+    {
+      "name": "negative_balance",
+      "description": "Account with overdraft",
+      "input": {
+        "transactions": [
+          {
+            "date": "01/20/2025",
+            "description": "OVERDRAFT FEE",
+            "debit": 35.00,
+            "balance": -35.00
+          }
+        ]
+      },
+      "expected": {
+        "negative_balance_handled": true
+      }
+    },
+    {
+      "name": "multiple_currencies",
+      "description": "Transactions with currency symbols",
+      "input": {
+        "transactions": [
+          {"description": "Purchase $100.00 USD"},
+          {"description": "Transfer €50.00 EUR"},
+          {"description": "Payment £25.00 GBP"}
+        ]
+      },
+      "expected": {
+        "currency_symbols_preserved": true
+      }
+    }
+  ]
+}
