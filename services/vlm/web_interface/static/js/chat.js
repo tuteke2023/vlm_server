@@ -24,6 +24,9 @@ class VLMChat {
         this.updateModelInfo();
         this.setWelcomeTime();
         
+        // Check for transcript context from audio service
+        this.checkTranscriptContext();
+        
         // Update server status every 30 seconds
         setInterval(() => {
             this.checkServerStatus();
@@ -585,6 +588,49 @@ class VLMChat {
                 toast.parentNode.removeChild(toast);
             }
         }, 5000);
+    }
+    
+    checkTranscriptContext() {
+        // Check if there's a transcript context from the audio service
+        const transcriptContext = sessionStorage.getItem('transcriptContext');
+        
+        if (transcriptContext) {
+            try {
+                const context = JSON.parse(transcriptContext);
+                
+                // Clear the session storage
+                sessionStorage.removeItem('transcriptContext');
+                
+                // Create a system message with the transcript
+                const systemMessage = {
+                    role: 'assistant',
+                    content: `I've received an audio transcript from file: ${context.metadata.filename}. The transcript contains:\n\n"${context.content}"\n\nI'm ready to answer any questions about this transcript or help you analyze its content.`,
+                    timestamp: new Date()
+                };
+                
+                // Add to chat
+                this.addMessageToChat(systemMessage);
+                
+                // Store the transcript in messages for context
+                this.messages.push({
+                    role: 'system',
+                    content: [{
+                        type: 'text',
+                        text: `Audio transcript from ${context.metadata.filename}: ${context.content}`
+                    }],
+                    timestamp: new Date()
+                });
+                
+                // Show notification
+                this.showToast('Audio transcript loaded successfully!', 'success');
+                
+                // Update conversation status
+                this.updateConversationStatus();
+                
+            } catch (error) {
+                console.error('Failed to load transcript context:', error);
+            }
+        }
     }
 }
 

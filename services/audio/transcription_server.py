@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import whisper
 import uvicorn
+from transcript_storage import TranscriptStorage
 
 # Configure logging
 logging.basicConfig(
@@ -80,8 +81,9 @@ class TranscriptionService:
             logger.error(f"Transcription failed: {str(e)}")
             raise HTTPException(status_code=500, detail=str(e))
 
-# Initialize service
+# Initialize services
 transcription_service = TranscriptionService()
+transcript_storage = TranscriptStorage()
 
 # Create FastAPI app
 app = FastAPI(title="Audio Transcription Service")
@@ -156,7 +158,8 @@ async def load_model(model_name: str = Form(...)):
 async def transcribe_audio(
     file: UploadFile = File(...),
     language: Optional[str] = Form(None),
-    model: Optional[str] = Form(None)
+    model: Optional[str] = Form(None),
+    save_transcript: bool = Form(True)
 ):
     """Transcribe an audio file"""
     
@@ -183,15 +186,74 @@ async def transcribe_audio(
         # Transcribe
         result = transcription_service.transcribe(tmp_file_path, language)
         
+        # Save transcript if requested
+        transcript_id = None
+        if save_transcript:
+            transcript_id = transcript_storage.save_transcript(
+                content=result["text"],
+                audio_filename=file.filename,
+                language=result.get("language"),
+                segments=result.get("segments"),
+                metadata={
+                    "model": transcription_service.current_model_name,
+                    "file_size": len(content)
+                }
+            )
+        
         return JSONResponse(content={
             "filename": file.filename,
             "model": transcription_service.current_model_name,
-            "transcription": result
+            "transcription": result,
+            "transcript_id": transcript_id
         })
         
     finally:
         # Clean up
         os.unlink(tmp_file_path)
+
+@app.get("/transcripts")
+async def list_transcripts(limit: int = 10, offset: int = 0):
+    """List saved transcripts"""
+    transcripts = transcript_storage.list_transcripts(limit, offset)
+    return {"transcripts": transcripts}
+
+@app.get("/transcripts/{transcript_id}")
+async def get_transcript(transcript_id: str):
+    """Get a specific transcript"""
+    transcript = transcript_storage.get_transcript(transcript_id)
+    if not transcript:
+        raise HTTPException(status_code=404, detail="Transcript not found")
+    return transcript
+
+@app.delete("/transcripts/{transcript_id}")
+async def delete_transcript(transcript_id: str):
+    """Delete a transcript"""
+    success = transcript_storage.delete_transcript(transcript_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Transcript not found")
+    return {"status": "success", "message": "Transcript deleted"}
+
+@app.post("/transcripts/{transcript_id}/to-chat")
+async def send_transcript_to_chat(transcript_id: str):
+    """Prepare transcript for chat integration"""
+    transcript = transcript_storage.get_transcript(transcript_id)
+    if not transcript:
+        raise HTTPException(status_code=404, detail="Transcript not found")
+    
+    # Format transcript for chat context
+    chat_context = {
+        "type": "audio_transcript",
+        "transcript_id": transcript_id,
+        "content": transcript["content"],
+        "metadata": {
+            "filename": transcript.get("audio_filename", "Unknown"),
+            "language": transcript.get("language", "Unknown"),
+            "created_at": transcript.get("created_at"),
+            "segments_available": bool(transcript.get("segments"))
+        }
+    }
+    
+    return chat_context
 
 if __name__ == "__main__":
     uvicorn.run(app, host=Config.HOST, port=Config.PORT)

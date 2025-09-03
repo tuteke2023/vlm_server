@@ -228,6 +228,7 @@
             <div id="fileInfo" class="file-info"></div>
             <button onclick="copyTranscription()" style="margin-bottom: 1rem;">📋 Copy to Clipboard</button>
             <button onclick="downloadTranscription()" style="margin-bottom: 1rem; margin-left: 1rem;">💾 Download as Text</button>
+            <button onclick="sendToChat()" style="margin-bottom: 1rem; margin-left: 1rem; background: #2ecc71;">💬 Send to Chat</button>
             <div id="transcriptionText" class="transcription-text"></div>
         </div>
     </div>
@@ -240,6 +241,7 @@
             : `http://${currentHost}:8001`;
         let currentFile = null;
         let currentTranscription = null;
+        let currentTranscriptId = null;
 
         // Elements
         const uploadArea = document.getElementById('uploadArea');
@@ -336,11 +338,13 @@
 
         function displayResult(result) {
             currentTranscription = result.transcription.text;
+            currentTranscriptId = result.transcript_id;
             
             document.getElementById('fileInfo').innerHTML = `
                 <strong>File:</strong> ${result.filename}<br>
                 <strong>Model:</strong> ${result.model}<br>
                 <strong>Language:</strong> ${result.transcription.language}
+                ${result.transcript_id ? `<br><strong>Transcript ID:</strong> ${result.transcript_id}` : ''}
             `;
             
             document.getElementById('transcriptionText').textContent = currentTranscription;
@@ -372,6 +376,38 @@
                 a.click();
                 URL.revokeObjectURL(url);
                 showStatus('Transcription downloaded!', 'success');
+            }
+        }
+
+        async function sendToChat() {
+            if (!currentTranscriptId) {
+                showStatus('No transcript ID available', 'error');
+                return;
+            }
+
+            try {
+                // Get transcript context for chat
+                const response = await fetch(`${API_URL}/transcripts/${currentTranscriptId}/to-chat`, {
+                    method: 'POST'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
+
+                const chatContext = await response.json();
+                
+                // Store in sessionStorage for the chat interface to pick up
+                sessionStorage.setItem('transcriptContext', JSON.stringify(chatContext));
+                
+                // Open chat interface in new tab
+                const chatUrl = 'http://localhost:8080/chat.html';
+                window.open(chatUrl, '_blank');
+                
+                showStatus('Transcript sent to chat interface!', 'success');
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+                console.error(error);
             }
         }
 
