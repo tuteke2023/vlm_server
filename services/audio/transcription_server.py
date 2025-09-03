@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse
 import whisper
 import uvicorn
 from transcript_storage import TranscriptStorage
+from vector_storage import VectorTranscriptStorage, TranscriptRAG
 
 # Configure logging
 logging.basicConfig(
@@ -84,6 +85,8 @@ class TranscriptionService:
 # Initialize services
 transcription_service = TranscriptionService()
 transcript_storage = TranscriptStorage()
+vector_storage = VectorTranscriptStorage()
+transcript_rag = TranscriptRAG(vector_storage)
 
 # Create FastAPI app
 app = FastAPI(title="Audio Transcription Service")
@@ -188,6 +191,7 @@ async def transcribe_audio(
         
         # Save transcript if requested
         transcript_id = None
+        vector_result = None
         if save_transcript:
             transcript_id = transcript_storage.save_transcript(
                 content=result["text"],
@@ -199,6 +203,18 @@ async def transcribe_audio(
                     "file_size": len(content)
                 }
             )
+            
+            # Also add to vector storage for semantic search
+            if transcript_id and result["text"]:
+                vector_result = vector_storage.add_transcript(
+                    transcript_id=transcript_id,
+                    text=result["text"],
+                    metadata={
+                        "filename": file.filename,
+                        "language": result.get("language"),
+                        "model": transcription_service.current_model_name
+                    }
+                )
         
         return JSONResponse(content={
             "filename": file.filename,
@@ -254,6 +270,144 @@ async def send_transcript_to_chat(transcript_id: str):
     }
     
     return chat_context
+
+@app.post("/transcripts/search")
+async def semantic_search(
+    query: str = Form(...),
+    n_results: int = Form(5),
+    transcript_ids: Optional[str] = Form(None)
+):
+    """Semantic search across transcripts"""
+    
+    # Parse transcript IDs if provided
+    ids_list = None
+    if transcript_ids:
+        ids_list = [id.strip() for id in transcript_ids.split(",")]
+    
+    # Perform semantic search
+    results = vector_storage.search(
+        query=query,
+        n_results=n_results,
+        transcript_ids=ids_list
+    )
+    
+    # Enhance results with full transcript metadata
+    enhanced_results = []
+    for result in results:
+        transcript = transcript_storage.get_transcript(result["transcript_id"])
+        if transcript:
+            result["transcript_metadata"] = {
+                "filename": transcript.get("audio_filename"),
+                "language": transcript.get("language"),
+                "created_at": transcript.get("created_at")
+            }
+        enhanced_results.append(result)
+    
+    return {
+        "query": query,
+        "results": enhanced_results,
+        "count": len(enhanced_results)
+    }
+
+@app.post("/transcripts/rag")
+async def transcript_rag(
+    query: str = Form(...),
+    max_context_length: int = Form(2000),
+    n_chunks: int = Form(5)
+):
+    """Get RAG context for a query"""
+    
+    # Get relevant context
+    context, sources = transcript_rag.get_context_for_query(
+        query=query,
+        max_context_length=max_context_length,
+        n_chunks=n_chunks
+    )
+    
+    if not context:
+        return {
+            "query": query,
+            "context": "",
+            "sources": [],
+            "prompt": "",
+            "message": "No relevant context found"
+        }
+    
+    # Format RAG prompt
+    prompt = transcript_rag.format_rag_prompt(query, context)
+    
+    return {
+        "query": query,
+        "context": context,
+        "sources": sources,
+        "prompt": prompt,
+        "context_length": len(context)
+    }
+
+@app.get("/transcripts/{transcript_id}/similar")
+async def find_similar_transcripts(
+    transcript_id: str,
+    n_results: int = 3
+):
+    """Find transcripts similar to the given one"""
+    
+    # Check if transcript exists
+    transcript = transcript_storage.get_transcript(transcript_id)
+    if not transcript:
+        raise HTTPException(status_code=404, detail="Transcript not found")
+    
+    # Find similar transcripts
+    similar = vector_storage.find_similar_transcripts(
+        transcript_id=transcript_id,
+        n_results=n_results
+    )
+    
+    # Enhance with metadata
+    enhanced_similar = []
+    for item in similar:
+        similar_transcript = transcript_storage.get_transcript(item["transcript_id"])
+        if similar_transcript:
+            item["metadata"] = {
+                "filename": similar_transcript.get("audio_filename"),
+                "language": similar_transcript.get("language"),
+                "created_at": similar_transcript.get("created_at"),
+                "preview": similar_transcript.get("content", "")[:200]
+            }
+        enhanced_similar.append(item)
+    
+    return {
+        "source_transcript": {
+            "id": transcript_id,
+            "filename": transcript.get("audio_filename")
+        },
+        "similar_transcripts": enhanced_similar
+    }
+
+@app.delete("/transcripts/{transcript_id}")
+async def delete_transcript_enhanced(transcript_id: str):
+    """Delete a transcript from both storages"""
+    
+    # Delete from vector storage
+    vector_deleted = vector_storage.delete_transcript(transcript_id)
+    
+    # Delete from SQL storage
+    sql_deleted = transcript_storage.delete_transcript(transcript_id)
+    
+    if not sql_deleted:
+        raise HTTPException(status_code=404, detail="Transcript not found")
+    
+    return {
+        "status": "success",
+        "message": "Transcript deleted",
+        "vector_storage_deleted": vector_deleted,
+        "sql_storage_deleted": sql_deleted
+    }
+
+@app.get("/vector/stats")
+async def get_vector_stats():
+    """Get statistics about the vector store"""
+    stats = vector_storage.get_statistics()
+    return stats
 
 if __name__ == "__main__":
     uvicorn.run(app, host=Config.HOST, port=Config.PORT)

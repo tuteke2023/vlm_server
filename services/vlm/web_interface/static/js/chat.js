@@ -601,10 +601,13 @@ class VLMChat {
                 // Clear the session storage
                 sessionStorage.removeItem('transcriptContext');
                 
+                // Store transcript ID for RAG queries
+                this.currentTranscriptId = context.transcript_id;
+                
                 // Create a system message with the transcript
                 const systemMessage = {
                     role: 'assistant',
-                    content: `I've received an audio transcript from file: ${context.metadata.filename}. The transcript contains:\n\n"${context.content}"\n\nI'm ready to answer any questions about this transcript or help you analyze its content.`,
+                    content: `I've received an audio transcript from file: ${context.metadata.filename}. The transcript contains:\n\n"${context.content}"\n\nI'm ready to answer any questions about this transcript or help you analyze its content.\n\nYou can ask me to:\n• Summarize the main points\n• Extract action items\n• Find specific topics\n• Analyze sentiment\n• Generate meeting minutes`,
                     timestamp: new Date()
                 };
                 
@@ -621,8 +624,8 @@ class VLMChat {
                     timestamp: new Date()
                 });
                 
-                // Show notification
-                this.showToast('Audio transcript loaded successfully!', 'success');
+                // Show notification with RAG status
+                this.showToast('Audio transcript loaded with semantic search enabled!', 'success');
                 
                 // Update conversation status
                 this.updateConversationStatus();
