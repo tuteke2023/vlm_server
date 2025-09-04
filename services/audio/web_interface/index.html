@@ -216,6 +216,28 @@
                 </select>
             </div>
             
+            <div style="margin-top: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 5px;">
+                <label style="display: flex; align-items: center; cursor: pointer;">
+                    <input type="checkbox" id="speakerDetection" checked style="margin-right: 10px; width: 20px; height: 20px;">
+                    <div>
+                        <strong>Enable Speaker Detection</strong>
+                        <div style="font-size: 0.85rem; color: #666; margin-top: 3px;">
+                            Identify different speakers (useful for conversations, meetings, interviews)
+                        </div>
+                    </div>
+                </label>
+                
+                <label style="display: flex; align-items: center; cursor: pointer; margin-top: 10px;">
+                    <input type="checkbox" id="enableCorrections" checked style="margin-right: 10px; width: 20px; height: 20px;">
+                    <div>
+                        <strong>Enable Auto-Corrections</strong>
+                        <div style="font-size: 0.85rem; color: #666; margin-top: 3px;">
+                            Fix common transcription errors (names, acronyms, domain terms)
+                        </div>
+                    </div>
+                </label>
+            </div>
+            
             <button id="transcribeBtn" style="width: 100%; margin-top: 1rem;" disabled>
                 🎯 Transcribe Audio
             </button>
@@ -308,6 +330,13 @@
             if (languageSelect.value) {
                 formData.append('language', languageSelect.value);
             }
+            
+            // Add speaker detection and correction options
+            const speakerDetection = document.getElementById('speakerDetection').checked;
+            const enableCorrections = document.getElementById('enableCorrections').checked;
+            formData.append('enable_speaker_detection', speakerDetection);
+            formData.append('enable_corrections', enableCorrections);
+            formData.append('domain', 'general'); // Can be made configurable later
 
             transcribeBtn.disabled = true;
             transcribeBtn.innerHTML = '<div class="spinner" style="display: inline-block; width: 20px; height: 20px; margin: 0;"></div> Processing...';
@@ -340,14 +369,57 @@
             currentTranscription = result.transcription.text;
             currentTranscriptId = result.transcript_id;
             
+            // Check if speaker detection was used
+            const hasSpeakers = result.transcription.speaker_segments && result.transcription.speaker_segments.length > 0;
+            const speakerCount = result.transcription.speaker_count || 0;
+            
             document.getElementById('fileInfo').innerHTML = `
                 <strong>File:</strong> ${result.filename}<br>
                 <strong>Model:</strong> ${result.model}<br>
                 <strong>Language:</strong> ${result.transcription.language}
+                ${hasSpeakers ? `<br><strong>Speakers Detected:</strong> ${speakerCount}` : ''}
+                ${result.processing_version ? `<br><strong>Processing Version:</strong> ${result.processing_version}` : ''}
                 ${result.transcript_id ? `<br><strong>Transcript ID:</strong> ${result.transcript_id}` : ''}
             `;
             
-            document.getElementById('transcriptionText').textContent = currentTranscription;
+            // Display transcript with or without speaker labels
+            const transcriptionDiv = document.getElementById('transcriptionText');
+            
+            if (hasSpeakers) {
+                // Format with speaker labels
+                let formattedText = '<div style="font-family: sans-serif;">';
+                let currentSpeaker = null;
+                let speakerText = [];
+                
+                for (const segment of result.transcription.speaker_segments) {
+                    if (segment.speaker !== currentSpeaker) {
+                        if (currentSpeaker && speakerText.length > 0) {
+                            formattedText += `<div style="margin-bottom: 15px;">
+                                <strong style="color: #2c3e50;">[${currentSpeaker}]:</strong> 
+                                <span>${speakerText.join(' ')}</span>
+                            </div>`;
+                            speakerText = [];
+                        }
+                        currentSpeaker = segment.speaker;
+                    }
+                    speakerText.push(segment.text);
+                }
+                
+                // Don't forget the last speaker
+                if (currentSpeaker && speakerText.length > 0) {
+                    formattedText += `<div style="margin-bottom: 15px;">
+                        <strong style="color: #2c3e50;">[${currentSpeaker}]:</strong> 
+                        <span>${speakerText.join(' ')}</span>
+                    </div>`;
+                }
+                
+                formattedText += '</div>';
+                transcriptionDiv.innerHTML = formattedText;
+            } else {
+                // Plain text display
+                transcriptionDiv.textContent = currentTranscription;
+            }
+            
             resultSection.style.display = 'block';
             resultSection.scrollIntoView({ behavior: 'smooth' });
         }

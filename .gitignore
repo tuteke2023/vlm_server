@@ -52,6 +52,22 @@ models/
 transcript_vectors/
 transcription_results_*.json
 batch_transcribe*.log
-test_*.py
 test_audio_folder/
 audio_library/
+
+# Transcripts and personal files
+*_transcript.txt
+*transcript*.txt
+stanley_*.txt
+ATOTeke*.txt
+639831872*.txt
+correction_comparison_results.json
+
+# Database backups
+services/audio/backups/
+*.db-journal
+*.db-backup
+
+# Vector database
+vector database/
+transcript_vectors_backup*/

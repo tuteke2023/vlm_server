@@ -4,13 +4,22 @@ This file contains development notes and instructions for Claude (or other AI as
 
 ## Project Overview
 
-VLM Server is a FastAPI-based server that provides vision-language model capabilities using Qwen2.5-VL models. The server supports:
-- Image and text analysis with unified LLM provider architecture
-- Document intelligence features with LangChain integration
-- Bank statement parsing with structured output and CSV/JSON export
+VLM Server is a comprehensive AI platform that provides multiple intelligent services:
+
+### Vision-Language Model (VLM)
+- Image and text analysis using Qwen2.5-VL models (3B and 7B)
+- Document intelligence with LangChain integration
+- Bank statement parsing with CSV/JSON export
 - Multiple providers: Local VLM and OpenAI GPT-4V
-- Multiple model sizes (3B and 7B) with automatic VRAM management
-- Performance optimizations and response caching
+- Automatic VRAM management and response caching
+
+### Audio Transcription & Vector Search
+- GPU-accelerated audio transcription using OpenAI Whisper
+- Automatic transcription of audio files with batch processing
+- Vector database integration (ChromaDB) for semantic search
+- RAG (Retrieval-Augmented Generation) for intelligent Q&A
+- Support for 10+ audio formats (m4a, mp3, wav, etc.)
+- Automatic truncation for files >1 hour (configurable)
 
 ## Recent Updates
 

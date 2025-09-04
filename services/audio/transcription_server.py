@@ -15,6 +15,8 @@ import whisper
 import uvicorn
 from transcript_storage import TranscriptStorage
 from vector_storage import VectorTranscriptStorage, TranscriptRAG
+from speaker_detection import PracticalSpeakerDetection
+from transcript_corrections import DomainSpecificCorrector
 
 # Configure logging
 logging.basicConfig(
@@ -162,9 +164,12 @@ async def transcribe_audio(
     file: UploadFile = File(...),
     language: Optional[str] = Form(None),
     model: Optional[str] = Form(None),
-    save_transcript: bool = Form(True)
+    save_transcript: bool = Form(True),
+    enable_speaker_detection: bool = Form(True),
+    enable_corrections: bool = Form(True),
+    domain: str = Form("tax")
 ):
-    """Transcribe an audio file"""
+    """Transcribe an audio file with optional speaker detection and corrections"""
     
     # Validate file type
     allowed_extensions = {'.wav', '.mp3', '.mp4', '.m4a', '.flac', '.ogg'}
@@ -189,6 +194,41 @@ async def transcribe_audio(
         # Transcribe
         result = transcription_service.transcribe(tmp_file_path, language)
         
+        # Apply corrections if enabled
+        if enable_corrections:
+            try:
+                corrector = DomainSpecificCorrector(domain)
+                # Correct the main text
+                result["text"] = corrector.correct_text(result["text"])
+                # Correct segments if they exist
+                if result.get("segments"):
+                    result["segments"] = corrector.correct_segments(result["segments"])
+                logger.info(f"Applied {domain} domain corrections to transcript")
+            except Exception as e:
+                logger.warning(f"Correction failed, using original transcript: {e}")
+        
+        # Apply speaker detection if enabled
+        speaker_segments = None
+        speaker_count = 2
+        processing_version = "1.0"
+        
+        if enable_speaker_detection and result.get("segments"):
+            try:
+                detector = PracticalSpeakerDetection()
+                speaker_segments, speaker_count = detector.detect_speakers_simple(result["segments"])
+                speaker_segments = detector.apply_speaker_names(speaker_segments)
+                
+                # Apply corrections to speaker segments too
+                if enable_corrections and speaker_segments:
+                    corrector = DomainSpecificCorrector(domain)
+                    speaker_segments = corrector.correct_segments(speaker_segments)
+                
+                processing_version = "2.0"
+                logger.info(f"Speaker detection completed: {speaker_count} speakers detected")
+            except Exception as e:
+                logger.warning(f"Speaker detection failed, using original transcript: {e}")
+                # Fall back to original transcript without speakers
+        
         # Save transcript if requested
         transcript_id = None
         vector_result = None
@@ -201,7 +241,10 @@ async def transcribe_audio(
                 metadata={
                     "model": transcription_service.current_model_name,
                     "file_size": len(content)
-                }
+                },
+                speaker_segments=speaker_segments,
+                speaker_count=speaker_count,
+                processing_version=processing_version
             )
             
             # Also add to vector storage for semantic search
@@ -212,15 +255,24 @@ async def transcribe_audio(
                     metadata={
                         "filename": file.filename,
                         "language": result.get("language"),
-                        "model": transcription_service.current_model_name
+                        "model": transcription_service.current_model_name,
+                        "speaker_count": speaker_count,
+                        "processing_version": processing_version
                     }
                 )
+        
+        # Add speaker information to response
+        if speaker_segments:
+            result["speaker_segments"] = speaker_segments
+            result["speaker_count"] = speaker_count
         
         return JSONResponse(content={
             "filename": file.filename,
             "model": transcription_service.current_model_name,
             "transcription": result,
-            "transcript_id": transcript_id
+            "transcript_id": transcript_id,
+            "processing_version": processing_version,
+            "speaker_detection_enabled": enable_speaker_detection
         })
         
     finally:

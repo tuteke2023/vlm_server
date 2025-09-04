@@ -33,14 +33,14 @@ A comprehensive Vision Language Model (VLM) server with dual web interfaces for 
 - 🔄 **Model Selection** - Switch between 3B/7B models for different VRAM needs
 
 ### **🎙️ Audio Transcription & Vector Search** (NEW!)
-- 🎯 **Batch Transcription** - Process hundreds of audio files efficiently
-- ⏱️ **Smart Duration Filtering** - Skip or truncate long recordings
-- ✂️ **Automatic Truncation** - Handle recordings that ran too long
-- 🔍 **Vector Database Search** - Semantic search across all transcripts
-- 🌐 **Multi-language Support** - English, Chinese, and auto-detection
-- 📊 **RAG Integration** - Retrieval-Augmented Generation for Q&A
-- 💾 **Hybrid Storage** - SQLite metadata + ChromaDB vectors
-- 🎨 **Beautiful Search UI** - Material Design interface for exploring transcripts
+- 🎯 **GPU-Accelerated Transcription** - OpenAI Whisper on CUDA for fast processing
+- 📂 **Batch Processing** - Transcribe hundreds of audio files automatically
+- ✂️ **Automatic Truncation** - Handle recordings >1 hour with ffmpeg truncation
+- 🔍 **Vector Database Search** - ChromaDB-powered semantic search across transcripts
+- 🤖 **RAG Q&A System** - Ask questions and extract action items from transcripts
+- 💾 **Hybrid Storage** - SQLite for metadata + ChromaDB for vector embeddings
+- 🎨 **Search Interface** - Material Design UI at `http://localhost:8002/search.html`
+- 📊 **Smart Chunking** - Automatic text segmentation for optimal retrieval
 
 ## 📁 Project Structure
 
@@ -83,8 +83,9 @@ vlm_server/
 ### Prerequisites
 
 - **Python 3.8+**
-- **CUDA-capable GPU** (recommended: 16GB+ VRAM)
+- **CUDA-capable GPU** (recommended: 16GB+ VRAM for VLM, 8GB+ for Whisper)
 - **NVIDIA drivers** and CUDA toolkit
+- **ffmpeg** (for audio processing and truncation)
 
 ### 1. Clone Repository
 
@@ -105,6 +106,12 @@ pip install -r requirements.txt
 
 # For RTX 5060 Ti and newer GPUs (sm_120+), install PyTorch with CUDA 12.8:
 pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+
+# Install ffmpeg for audio processing (required for transcription)
+sudo apt update && sudo apt install -y ffmpeg
+
+# Install additional audio dependencies
+pip install openai-whisper chromadb
 ```
 
 **Important**: Always activate the virtual environment before running the server!
@@ -123,7 +130,22 @@ The server will start on `http://localhost:8000` with:
 - ✅ **Model Management**: `/available_models`, `/reload_model` - Multi-model support
 - ✅ **Generation API**: `/api/v1/generate` - Main processing endpoint
 
-### 4. Start Web Interface
+### 4. Start Audio Transcription Service (Optional)
+
+```bash
+# In a new terminal
+source ~/pytorch-env/bin/activate
+cd services/audio
+python transcription_server.py
+```
+
+The transcription server will start on `http://localhost:8001` with:
+- ✅ **Whisper Model**: GPU-accelerated transcription (base model by default)
+- ✅ **Vector Database**: ChromaDB for semantic search
+- ✅ **RAG System**: Q&A and action items extraction
+- ✅ **Web Search UI**: Available at `http://localhost:8002/search.html`
+
+### 5. Start Web Interface
 
 ```bash
 # In a new terminal
@@ -194,6 +216,29 @@ python3 -m http.server 8080
 # - Later: "Compare it to the product we discussed earlier"
 ```
 
+### 🎙️ **Audio Transcription & Search**
+```bash
+# Batch transcribe audio files with automatic truncation
+./transcribe_with_truncation.sh
+
+# Simple transcription without truncation
+./transcribe_all.sh
+
+# Python-based batch transcription with detailed options
+python batch_transcribe_windows.py
+
+# Search transcripts via web UI
+# Open: http://localhost:8002/search.html
+
+# Extract action items via API
+curl -X POST http://localhost:8001/qa/action_items \
+  -F "person=John"
+
+# Ask questions about transcripts
+curl -X POST http://localhost:8001/qa/ask \
+  -F "question=What were the main topics discussed?"
+```
+
 ## 📊 Performance
 
 ### **GPU Acceleration Results**
@@ -258,6 +303,41 @@ export_response = requests.post('http://localhost:8000/api/v1/bank_export', json
     "export_format": "csv"  # or "json"
 })
 # Returns CSV with columns: Date, Description, Category, Debit, Credit, Balance
+```
+
+### **Audio Transcription API**
+```python
+# Transcribe a single audio file
+with open("audio.m4a", "rb") as f:
+    response = requests.post('http://localhost:8001/transcribe',
+        files={'file': f},
+        data={
+            'language': 'en',
+            'task': 'transcribe',
+            'save_transcript': 'true'
+        }
+    )
+    
+# Search transcripts semantically
+response = requests.post('http://localhost:8001/transcripts/search',
+    data={
+        'query': 'discussion about project timeline',
+        'n_results': 5
+    }
+)
+
+# Extract action items
+response = requests.post('http://localhost:8001/qa/action_items',
+    data={'person': 'John'}  # Optional: filter by person
+)
+
+# Ask questions using RAG
+response = requests.post('http://localhost:8001/qa/ask',
+    data={
+        'question': 'What were the key decisions made?',
+        'max_context_length': 3000
+    }
+)
 ```
 
 ## 🛠️ Development
@@ -357,6 +437,41 @@ tail -f server.log
 # Test basic connectivity
 curl http://localhost:8000/health
 ```
+
+### **Audio Transcription Issues**
+
+#### FFmpeg Not Found
+```bash
+# Install ffmpeg (required for audio processing)
+sudo apt update && sudo apt install -y ffmpeg
+
+# Verify installation
+ffmpeg -version
+```
+
+#### GPU Not Being Used for Whisper
+```bash
+# Check CUDA availability
+python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}')"
+
+# Monitor GPU usage during transcription
+watch -n 1 nvidia-smi
+```
+
+#### Vector Database Connection Issues
+```bash
+# Check vector database status
+curl http://localhost:8001/vector/stats
+
+# Verify ChromaDB installation
+pip show chromadb
+```
+
+#### Batch Transcription Tips
+- Files >1 hour are automatically truncated to 60 minutes
+- Use `transcribe_with_truncation.sh` for automatic truncation
+- Check `transcription_results_*.json` for batch processing logs
+- Monitor GPU usage: expect ~30% utilization, ~15GB VRAM for Whisper base model
 
 ## 🔐 Security Considerations
 
