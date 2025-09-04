@@ -310,7 +310,7 @@ async def semantic_search(
     }
 
 @app.post("/transcripts/rag")
-async def transcript_rag(
+async def get_rag_context(
     query: str = Form(...),
     max_context_length: int = Form(2000),
     n_chunks: int = Form(5)

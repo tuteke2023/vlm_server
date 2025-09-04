@@ -32,6 +32,16 @@ A comprehensive Vision Language Model (VLM) server with dual web interfaces for 
 - ❓ **Custom Queries** - Ask anything about uploaded documents
 - 🔄 **Model Selection** - Switch between 3B/7B models for different VRAM needs
 
+### **🎙️ Audio Transcription & Vector Search** (NEW!)
+- 🎯 **Batch Transcription** - Process hundreds of audio files efficiently
+- ⏱️ **Smart Duration Filtering** - Skip or truncate long recordings
+- ✂️ **Automatic Truncation** - Handle recordings that ran too long
+- 🔍 **Vector Database Search** - Semantic search across all transcripts
+- 🌐 **Multi-language Support** - English, Chinese, and auto-detection
+- 📊 **RAG Integration** - Retrieval-Augmented Generation for Q&A
+- 💾 **Hybrid Storage** - SQLite metadata + ChromaDB vectors
+- 🎨 **Beautiful Search UI** - Material Design interface for exploring transcripts
+
 ## 📁 Project Structure
 
 ```
@@ -46,6 +56,17 @@ vlm_server/
 ├── test_parser_v3.py                  # Bank parser tests
 ├── API_DOCUMENTATION.md               # Complete API reference
 ├── CLAUDE.md                          # Development notes for AI assistants
+├── BATCH_TRANSCRIPTION_GUIDE.md      # Audio batch processing guide
+├── AUDIO_VECTOR_FEATURES.md          # Vector database feature docs
+├── batch_transcribe_filtered.py      # Batch transcription with filtering
+├── transcribe_truncated.py           # Truncate and transcribe long files
+├── analyze_large_files.py            # Analyze skipped audio files
+├── services/audio/                   # Audio transcription service
+│   ├── transcription_server.py       # Whisper API server
+│   ├── vector_storage.py            # ChromaDB vector storage
+│   ├── transcript_storage.py        # SQLite transcript database
+│   └── web_interface/               # Audio search interface
+│       └── search.html              # Vector search UI
 ├── web_interface/                     # Dual Web UI
 │   ├── index.html                    # Document processing interface
 │   ├── chat.html                     # Conversational AI interface
@@ -117,6 +138,7 @@ python3 -m http.server 8080
 - **💬 Chat Interface**: `http://localhost:8080/chat.html` - Conversational AI with memory
 - **💳 Bank Processor**: `http://localhost:8080/bank_processor.html` - Bank statement extraction
 - **🎤 Audio Transcription**: `http://localhost:8002/` - Audio to text conversion (Whisper)
+- **🔍 Vector Search**: `http://localhost:8002/search.html` - Semantic search across all transcripts
 
 ### API Endpoints
 - **VLM API**: `http://localhost:8000` - Vision Language Model API

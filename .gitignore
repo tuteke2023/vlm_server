@@ -47,4 +47,11 @@ models/
 # Environment files
 .env
 .env.local
-.env.*.local
+.env.*.local# Data files
+*.db
+transcript_vectors/
+transcription_results_*.json
+batch_transcribe*.log
+test_*.py
+test_audio_folder/
+audio_library/
