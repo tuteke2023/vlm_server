@@ -409,5 +409,101 @@ async def get_vector_stats():
     stats = vector_storage.get_statistics()
     return stats
 
+# ============== LLM Q&A Endpoints ==============
+
+from llm_qa_system import TranscriptQASystem, QAResult
+
+# Initialize Q&A system
+qa_system = TranscriptQASystem(vector_storage=vector_storage)
+
+@app.post("/qa/ask")
+async def ask_question(
+    question: str = Form(...),
+    max_context_length: int = Form(3000),
+    n_chunks: int = Form(5)
+):
+    """Ask a question and get an intelligent answer using RAG + VLM"""
+    try:
+        result = qa_system.answer_question(
+            question=question,
+            max_context_length=max_context_length,
+            n_chunks=n_chunks
+        )
+        
+        return {
+            "question": result.question,
+            "answer": result.answer,
+            "confidence": result.confidence,
+            "sources": result.sources,
+            "processing_time": result.processing_time
+        }
+    except Exception as e:
+        logger.error(f"Q&A error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/qa/action_items")
+async def extract_action_items(
+    person: Optional[str] = Form(None)
+):
+    """Extract action items from transcripts"""
+    try:
+        items = qa_system.extract_action_items(person=person)
+        return {
+            "action_items": items,
+            "count": len(items),
+            "filter": {"person": person} if person else None
+        }
+    except Exception as e:
+        logger.error(f"Action items extraction error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/qa/summarize")
+async def summarize_topic(
+    topic: str = Form(...),
+    max_length: int = Form(500)
+):
+    """Generate a summary about a specific topic"""
+    try:
+        summary = qa_system.summarize_topic(topic, max_length)
+        return summary
+    except Exception as e:
+        logger.error(f"Summarization error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/qa/compare")
+async def compare_meetings(
+    meeting1: str = Form(...),
+    meeting2: str = Form(...)
+):
+    """Compare two meetings or time periods"""
+    try:
+        comparison = qa_system.compare_meetings(meeting1, meeting2)
+        return comparison
+    except Exception as e:
+        logger.error(f"Comparison error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/qa/entities")
+async def extract_entities(
+    entity_type: str = Form("all")
+):
+    """Extract named entities from transcripts"""
+    try:
+        entities = qa_system.extract_entities(entity_type)
+        return entities
+    except Exception as e:
+        logger.error(f"Entity extraction error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/qa/insights")
+async def generate_insights():
+    """Generate high-level insights from all transcripts"""
+    try:
+        insights = qa_system.generate_insights()
+        return insights
+    except Exception as e:
+        logger.error(f"Insights generation error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     uvicorn.run(app, host=Config.HOST, port=Config.PORT)
