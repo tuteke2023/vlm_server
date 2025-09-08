@@ -121,14 +121,14 @@ Please provide a clear, direct answer based only on the information provided abo
             }
             
             response = requests.post(
-                f"{self.vlm_url}/api/v1/generate_unified",
+                f"{self.vlm_url}/api/v1/generate",
                 json=payload,
                 timeout=30
             )
             
             if response.status_code == 200:
                 result = response.json()
-                return result.get('response', {}).get('content', 'Unable to generate answer')
+                return result.get('response', 'Unable to generate answer')
             else:
                 # Fallback to simple extraction if VLM is not available
                 return self._fallback_extraction(prompt)

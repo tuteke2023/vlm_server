@@ -21,7 +21,25 @@ VLM Server is a comprehensive AI platform that provides multiple intelligent ser
 - Support for 10+ audio formats (m4a, mp3, wav, etc.)
 - Automatic truncation for files >1 hour (configurable)
 
+### Video-to-SOP Generator
+- Converts instructional videos into Standard Operating Procedures
+- Hybrid AI system combining VLM visual verification with documentation expertise
+- Intelligent frame extraction with temporal alignment
+- Professional SOP generation with comprehensive sections
+
 ## Recent Updates
+
+### Video-to-SOP Generator (September 2025)
+- Implemented hybrid AI system for converting instructional videos to SOPs
+- Combined Qwen2.5-VL-7B visual verification with Claude documentation expertise
+- Created intelligent frame extraction with look-ahead capability
+- Features:
+  - Automatic transcription and key moment detection
+  - VLM verification of frame-to-narration matching
+  - Professional SOP generation with comprehensive sections
+  - One-command CLI interface: `python video_to_sop.py video.mp4`
+  - Handles visual-audio temporal misalignment
+  - Generates SOPs with prerequisites, troubleshooting, compliance sections
 
 ### Unified LangChain Architecture (August 2025)
 - Implemented unified LLM provider system supporting multiple backends
@@ -53,6 +71,13 @@ VLM Server is a comprehensive AI platform that provides multiple intelligent ser
 - `static/js/app_unified_styled.js` - Unified frontend with provider switching
 - `static/js/unified_api.js` - Unified API client
 - `static/css/style.css` - Enhanced styling with CSS variables
+
+### Video-to-SOP Generator (services/video_sop/)
+- `video_to_sop.py` - Main CLI converter for videos to SOPs
+- `hybrid_sop_generator.py` - Hybrid VLM+Claude documentation generator
+- `vlm_frame_analyzer.py` - VLM-powered frame verification
+- `intelligent_frame_extractor_v2.py` - Smart frame extraction with look-ahead
+- `README_VIDEO_TO_SOP.md` - Complete usage documentation
 
 ## Important Commands
 

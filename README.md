@@ -32,7 +32,7 @@ A comprehensive Vision Language Model (VLM) server with dual web interfaces for 
 - ❓ **Custom Queries** - Ask anything about uploaded documents
 - 🔄 **Model Selection** - Switch between 3B/7B models for different VRAM needs
 
-### **🎙️ Audio Transcription & Vector Search** (NEW!)
+### **🎙️ Audio Transcription & Vector Search**
 - 🎯 **GPU-Accelerated Transcription** - OpenAI Whisper on CUDA for fast processing
 - 📂 **Batch Processing** - Transcribe hundreds of audio files automatically
 - ✂️ **Automatic Truncation** - Handle recordings >1 hour with ffmpeg truncation
@@ -41,6 +41,16 @@ A comprehensive Vision Language Model (VLM) server with dual web interfaces for 
 - 💾 **Hybrid Storage** - SQLite for metadata + ChromaDB for vector embeddings
 - 🎨 **Search Interface** - Material Design UI at `http://localhost:8002/search.html`
 - 📊 **Smart Chunking** - Automatic text segmentation for optimal retrieval
+
+### **📹 Video-to-SOP Generator** (NEW!)
+- 🎬 **Automatic SOP Creation** - Convert instructional videos into comprehensive Standard Operating Procedures
+- 🤖 **Hybrid AI System** - Combines Qwen2.5-VL-7B visual verification with Claude's documentation expertise
+- 🎯 **Intelligent Frame Extraction** - Automatically finds frames that match narration with look-ahead
+- 📝 **Professional Documentation** - Generates SOPs with prerequisites, troubleshooting, compliance sections
+- 🔍 **Visual-Audio Alignment** - Detects when visuals appear vs. when they're mentioned
+- ✅ **VLM Verification** - Each frame is verified by AI to ensure it matches the described action
+- 📊 **Comprehensive Output** - Includes step-by-step instructions, tips, warnings, and quick reference
+- 🚀 **One-Command Conversion** - Simple CLI: `python video_to_sop.py video.mp4`
 
 ## 📁 Project Structure
 
@@ -67,6 +77,12 @@ vlm_server/
 │   ├── transcript_storage.py        # SQLite transcript database
 │   └── web_interface/               # Audio search interface
 │       └── search.html              # Vector search UI
+├── services/video_sop/               # Video-to-SOP conversion service
+│   ├── video_to_sop.py              # Main CLI converter
+│   ├── hybrid_sop_generator.py      # Hybrid VLM+Claude generator
+│   ├── vlm_frame_analyzer.py        # VLM frame verification
+│   ├── intelligent_frame_extractor_v2.py # Smart frame extraction
+│   └── README_VIDEO_TO_SOP.md       # Video-to-SOP documentation
 ├── web_interface/                     # Dual Web UI
 │   ├── index.html                    # Document processing interface
 │   ├── chat.html                     # Conversational AI interface
@@ -237,6 +253,26 @@ curl -X POST http://localhost:8001/qa/action_items \
 # Ask questions about transcripts
 curl -X POST http://localhost:8001/qa/ask \
   -F "question=What were the main topics discussed?"
+```
+
+### 📹 **Video-to-SOP Generation**
+```bash
+# Convert instructional videos to comprehensive SOPs
+
+# Start required services
+python services/vlm/real_vlm_server.py &
+python services/audio/transcription_server.py &
+
+# Convert video to SOP with one command
+cd services/video_sop
+python video_to_sop.py /path/to/video.mp4
+
+# Output includes:
+# - Comprehensive SOP document (markdown)
+# - VLM-verified screenshots
+# - Step-by-step instructions with tips & warnings
+# - Troubleshooting guide
+# - Compliance and audit sections
 ```
 
 ## 📊 Performance

@@ -325,6 +325,110 @@
             color: #ccc;
             margin-bottom: 1rem;
         }
+
+        /* Modal styles for full transcript view */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 2% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 90%;
+            max-width: 1000px;
+            height: 85vh;
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .modal-header h2 {
+            color: #667eea;
+            margin: 0;
+        }
+
+        .modal-controls {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .modal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem 0;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            line-height: 1.6;
+        }
+
+        .close {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            background: none;
+            border: none;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: #000;
+        }
+
+        .download-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .download-btn:hover {
+            background: #5567d0;
+        }
+
+        .copy-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .copy-btn:hover {
+            background: #218838;
+        }
     </style>
 </head>
 <body>
@@ -419,6 +523,33 @@
                 <h2><i class="fas fa-list"></i> Search Results</h2>
                 <div class="results-count" id="resultsCount"></div>
             </div>
+            
+            <!-- AI Summary Section -->
+            <div id="summarySection" style="display: none; margin-bottom: 2rem;">
+                <div style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 1rem; border-radius: 10px 10px 0 0;">
+                    <h3 style="margin: 0; color: white;">
+                        <i class="fas fa-magic"></i> AI-Generated Summary
+                    </h3>
+                </div>
+                <div style="background: #f9f9f9; padding: 1.5rem; border: 2px solid #667eea; border-top: none; border-radius: 0 0 10px 10px;">
+                    <div id="summaryContent" style="white-space: pre-wrap; line-height: 1.6;">
+                        <div class="spinner"></div>
+                        Generating summary...
+                    </div>
+                </div>
+                <div style="margin-top: 1rem; display: flex; gap: 1rem;">
+                    <button onclick="generateSummary('action_items')" class="quick-tag">
+                        <i class="fas fa-tasks"></i> Extract Action Items
+                    </button>
+                    <button onclick="generateSummary('key_facts')" class="quick-tag">
+                        <i class="fas fa-info-circle"></i> Key Facts
+                    </button>
+                    <button onclick="generateSummary('comprehensive')" class="quick-tag">
+                        <i class="fas fa-file-alt"></i> Full Analysis
+                    </button>
+                </div>
+            </div>
+            
             <div id="resultsContainer"></div>
             
             <div class="rag-section" id="ragSection" style="display: none;">
@@ -427,6 +558,27 @@
                     Prepared context for Q&A based on your search:
                 </p>
                 <div class="rag-context" id="ragContext"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for full transcript view -->
+    <div id="transcriptModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="transcriptTitle">Full Transcript</h2>
+                <div class="modal-controls">
+                    <button class="copy-btn" onclick="copyTranscript()">
+                        <i class="fas fa-copy"></i> Copy
+                    </button>
+                    <button class="download-btn" onclick="downloadTranscript()">
+                        <i class="fas fa-download"></i> Download
+                    </button>
+                    <button class="close" onclick="closeModal()">&times;</button>
+                </div>
+            </div>
+            <div class="modal-body" id="transcriptContent">
+                Loading transcript...
             </div>
         </div>
     </div>
@@ -450,6 +602,10 @@
             }
         }
 
+        // Store current search query and results globally
+        let currentSearchQuery = '';
+        let currentSearchResults = [];
+        
         // Search function
         async function search() {
             const query = document.getElementById('searchInput').value.trim();
@@ -458,6 +614,7 @@
                 return;
             }
 
+            currentSearchQuery = query; // Store for summary generation
             const searchButton = document.getElementById('searchButton');
             searchButton.disabled = true;
             searchButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Searching...';
@@ -465,9 +622,14 @@
             const resultsSection = document.getElementById('resultsSection');
             const resultsContainer = document.getElementById('resultsContainer');
             const resultsCount = document.getElementById('resultsCount');
+            const summarySection = document.getElementById('summarySection');
             
             resultsContainer.innerHTML = '<div class="loading"><div class="spinner"></div>Searching...</div>';
             resultsSection.classList.add('active');
+            
+            // Auto-generate summary on search
+            summarySection.style.display = 'block';
+            generateSummary('summary');
 
             try {
                 // Perform semantic search
@@ -485,6 +647,7 @@
                 }
 
                 const data = await response.json();
+                currentSearchResults = data.results || []; // Store results for summary
                 
                 // Display results
                 if (data.count > 0) {
@@ -508,6 +671,10 @@
                                 <span><i class="fas fa-file"></i> ${result.transcript_metadata?.filename || 'Unknown'}</span>
                                 <span><i class="fas fa-language"></i> ${result.transcript_metadata?.language || 'Unknown'}</span>
                                 <span><i class="fas fa-puzzle-piece"></i> Chunk ${result.chunk_index || 0}</span>
+                                <button onclick="viewFullTranscript('${result.transcript_id}', '${escapeHtml(result.transcript_metadata?.filename || 'transcript')}')" 
+                                        style="margin-left: auto; padding: 0.25rem 0.75rem; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                                    <i class="fas fa-file-alt"></i> View Full Transcript
+                                </button>
                             </div>
                         `;
                         
@@ -594,6 +761,193 @@
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        // View full transcript
+        let currentTranscriptId = null;
+        let currentTranscriptFilename = null;
+        let currentTranscriptContent = null;
+
+        async function viewFullTranscript(transcriptId, filename) {
+            const modal = document.getElementById('transcriptModal');
+            const content = document.getElementById('transcriptContent');
+            const title = document.getElementById('transcriptTitle');
+            
+            currentTranscriptId = transcriptId;
+            currentTranscriptFilename = filename;
+            
+            modal.style.display = 'block';
+            title.textContent = `Full Transcript: ${filename}`;
+            content.textContent = 'Loading transcript...';
+            
+            try {
+                const response = await fetch(`${API_URL}/transcripts/${transcriptId}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    currentTranscriptContent = data.content || 'No content available';
+                    
+                    // Format the transcript with metadata
+                    let formattedContent = `===== TRANSCRIPT =====\n`;
+                    formattedContent += `File: ${data.audio_filename || filename}\n`;
+                    formattedContent += `Language: ${data.language || 'Unknown'}\n`;
+                    formattedContent += `Created: ${data.created_at || 'Unknown'}\n`;
+                    formattedContent += `Transcript ID: ${transcriptId}\n`;
+                    formattedContent += `===================\n\n`;
+                    formattedContent += currentTranscriptContent;
+                    
+                    content.textContent = formattedContent;
+                } else {
+                    throw new Error('Failed to fetch transcript');
+                }
+            } catch (error) {
+                console.error('Error fetching transcript:', error);
+                content.textContent = 'Error loading transcript. Please try again.';
+            }
+        }
+
+        // Close modal
+        function closeModal() {
+            const modal = document.getElementById('transcriptModal');
+            modal.style.display = 'none';
+        }
+
+        // Copy transcript to clipboard
+        async function copyTranscript() {
+            const content = document.getElementById('transcriptContent');
+            try {
+                await navigator.clipboard.writeText(content.textContent);
+                
+                // Show feedback
+                const copyBtn = document.querySelector('.copy-btn');
+                const originalText = copyBtn.innerHTML;
+                copyBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                copyBtn.style.background = '#28a745';
+                
+                setTimeout(() => {
+                    copyBtn.innerHTML = originalText;
+                    copyBtn.style.background = '';
+                }, 2000);
+            } catch (error) {
+                console.error('Failed to copy:', error);
+                alert('Failed to copy transcript to clipboard');
+            }
+        }
+
+        // Download transcript
+        function downloadTranscript() {
+            const content = document.getElementById('transcriptContent').textContent;
+            const filename = currentTranscriptFilename.replace(/\.[^/.]+$/, '') + '_transcript.txt';
+            
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+
+        // Generate AI Summary
+        async function generateSummary(type = 'summary') {
+            const summaryContent = document.getElementById('summaryContent');
+            
+            if (!currentSearchQuery || currentSearchResults.length === 0) {
+                summaryContent.innerHTML = 'Please perform a search first to find relevant content.';
+                return;
+            }
+            
+            summaryContent.innerHTML = '<div class="spinner"></div>Generating ' + type.replace('_', ' ') + '...';
+            
+            try {
+                // Build context from search results (limited for token constraints)
+                let context = "CONVERSATION EXCERPTS:\n\n";
+                currentSearchResults.slice(0, 3).forEach((result, i) => {
+                    const filename = result.transcript_metadata?.filename || 'transcript';
+                    // Truncate each excerpt to avoid token limits
+                    const text = result.text.length > 500 ? result.text.substring(0, 500) + '...' : result.text;
+                    context += `[From ${filename}]: ${text}\n\n`;
+                });
+                
+                let question = '';
+                
+                switch(type) {
+                    case 'summary':
+                        question = `${context}\n\nSummarize these conversation excerpts. What are the main topics and key points discussed?`;
+                        break;
+                    case 'action_items':
+                        question = `${context}\n\nList all action items and tasks mentioned in these excerpts with any deadlines or responsible parties.`;
+                        break;
+                    case 'key_facts':
+                        question = `${context}\n\nExtract key facts: dates, names, amounts, and important details from these excerpts.`;
+                        break;
+                    case 'comprehensive':
+                        question = `${context}\n\nAnalyze these excerpts:\n1) Summary\n2) Action items\n3) Key facts\n4) Next steps`;
+                        break;
+                }
+                
+                // Send the full context directly in the question
+                // This ensures the VLM gets the actual search results
+                const formData = new FormData();
+                formData.append('question', question);
+                formData.append('max_context_length', '1');  // Set to 1 to bypass RAG search
+                formData.append('n_chunks', '1');
+                
+                const response = await fetch(`${API_URL}/qa/ask`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Format the response nicely
+                    let formattedAnswer = data.answer || data.response || 'No summary available';
+                    
+                    // Add metadata about the search results used
+                    formattedAnswer += '\n\n---\n';
+                    formattedAnswer += `📊 Based on ${currentSearchResults.length} search results\n`;
+                    formattedAnswer += `🔍 Search query: "${currentSearchQuery}"\n`;
+                    formattedAnswer += `🤖 Generated by: Local VLM (Qwen2.5-VL)`;
+                    
+                    summaryContent.innerHTML = escapeHtml(formattedAnswer);
+                } else {
+                    throw new Error('Failed to generate summary');
+                }
+            } catch (error) {
+                console.error('Summary generation error:', error);
+                summaryContent.innerHTML = `❌ Failed to generate summary: ${error.message || 'Unknown error'}. Please try again.`;
+                
+                // Fallback: try a simpler request
+                try {
+                    const simpleQuestion = `Based on search for "${currentSearchQuery}", provide a brief summary.`;
+                    const formData = new FormData();
+                    formData.append('question', simpleQuestion);
+                    formData.append('max_context_length', '2000');
+                    formData.append('n_chunks', '5');
+                    
+                    const response = await fetch(`${API_URL}/qa/ask`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        summaryContent.innerHTML = escapeHtml(data.answer || 'No summary available');
+                    }
+                } catch (fallbackError) {
+                    console.error('Fallback also failed:', fallbackError);
+                }
+            }
+        }
+        
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('transcriptModal');
+            if (event.target == modal) {
+                closeModal();
+            }
         }
 
         // Event listeners

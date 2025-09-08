@@ -52,7 +52,10 @@ class TranscriptStorage:
         audio_filename: Optional[str] = None,
         language: Optional[str] = None,
         segments: Optional[List[Dict]] = None,
-        metadata: Optional[Dict] = None
+        metadata: Optional[Dict] = None,
+        speaker_segments: Optional[List[Dict]] = None,
+        speaker_count: int = 2,
+        processing_version: str = "1.0"
     ) -> str:
         """Save a transcript to the database"""
         transcript_id = str(uuid.uuid4())
@@ -60,22 +63,46 @@ class TranscriptStorage:
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             
-            cursor.execute("""
-                INSERT INTO transcripts (
-                    id, audio_filename, content, language, segments, metadata
-                ) VALUES (?, ?, ?, ?, ?, ?)
-            """, (
-                transcript_id,
-                audio_filename,
-                content,
-                language,
-                json.dumps(segments) if segments else None,
-                json.dumps(metadata) if metadata else None
-            ))
+            # Check if new columns exist
+            cursor.execute("PRAGMA table_info(transcripts)")
+            columns = [col[1] for col in cursor.fetchall()]
+            
+            if 'speaker_segments' in columns:
+                # Use new schema with speaker detection
+                cursor.execute("""
+                    INSERT INTO transcripts (
+                        id, audio_filename, content, language, segments, metadata,
+                        speaker_segments, speaker_count, processing_version
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    transcript_id,
+                    audio_filename,
+                    content,
+                    language,
+                    json.dumps(segments) if segments else None,
+                    json.dumps(metadata) if metadata else None,
+                    json.dumps(speaker_segments) if speaker_segments else None,
+                    speaker_count,
+                    processing_version
+                ))
+            else:
+                # Use old schema (backward compatibility)
+                cursor.execute("""
+                    INSERT INTO transcripts (
+                        id, audio_filename, content, language, segments, metadata
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                """, (
+                    transcript_id,
+                    audio_filename,
+                    content,
+                    language,
+                    json.dumps(segments) if segments else None,
+                    json.dumps(metadata) if metadata else None
+                ))
             
             conn.commit()
             
-        logger.info(f"Saved transcript {transcript_id}")
+        logger.info(f"Saved transcript {transcript_id} (version {processing_version})")
         return transcript_id
     
     def get_transcript(self, transcript_id: str) -> Optional[Dict[str, Any]]:
@@ -93,10 +120,13 @@ class TranscriptStorage:
             if row:
                 result = dict(row)
                 # Parse JSON fields
-                if result['segments']:
+                if result.get('segments'):
                     result['segments'] = json.loads(result['segments'])
-                if result['metadata']:
+                if result.get('metadata'):
                     result['metadata'] = json.loads(result['metadata'])
+                # Parse new speaker fields if they exist
+                if result.get('speaker_segments'):
+                    result['speaker_segments'] = json.loads(result['speaker_segments'])
                 return result
             
             return None

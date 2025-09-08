@@ -1,0 +1,13 @@
+{
+  "source_video": "/mnt/c/Users/tekee/Videos/2025-09-05 11-04-15.mkv",
+  "video_duration": 80.4,
+  "video_resolution": "1280x720",
+  "frames_extracted": 9,
+  "audio_extracted": true,
+  "processing_status": "partial",
+  "services_required": [
+    "VLM (8000)",
+    "Transcription (8001)"
+  ],
+  "timestamp": "2025-09-08T13:59:09.382833"
+}
